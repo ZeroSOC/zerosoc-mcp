@@ -194,7 +194,7 @@ def _process(image: dict[str, Any] | None, **extra: Any) -> dict[str, Any]:
     }
 
 
-DEVICE = {"@odata.type": T + "deviceEvidence", "deviceDnsName": "enea", "mdeDeviceId": "m1"}
+DEVICE = {"@odata.type": T + "deviceEvidence", "deviceDnsName": "ws01", "mdeDeviceId": "m1"}
 
 
 def test_the_source_lists_one_process_twice_when_its_details_differ_and_so_does_the_inventory() -> (
@@ -231,12 +231,12 @@ def test_rows_of_one_process_are_linked_not_merged_so_no_verdict_is_lost() -> No
     assert (
         processes[0]["instance"]
         == processes[1]["instance"]
-        == ("enea|640|2026-09-13T18:38:51.74649Z")
+        == ("ws01|640|2026-09-13T18:38:51.74649Z")
     )
     assert result["processInstanceCount"] == 1
     assert result["sameProcess"] == [
         {
-            "instance": "enea|640|2026-09-13T18:38:51.74649Z",
+            "instance": "ws01|640|2026-09-13T18:38:51.74649Z",
             "rows": 2,
             "names": ["WmiPrvSE.exe"],
             "verdicts": ["malicious", "suspicious"],
@@ -280,7 +280,7 @@ def test_names_compare_without_case() -> None:
         return {"@odata.type": T + "deviceEvidence", "deviceDnsName": name}
 
     assert (
-        inventory([{"id": "a1", "evidence": [device("ENEA.lab"), device("enea.lab")]}])[
+        inventory([{"id": "a1", "evidence": [device("WS01.lab"), device("ws01.lab")]}])[
             "entityCount"
         ]
         == 1
