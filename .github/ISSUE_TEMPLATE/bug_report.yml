@@ -1,0 +1,55 @@
+name: Bug report
+description: A tool returns the wrong answer, fails, or does not match the source of truth.
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not paste real tenant data.** No device names, user principal names,
+        tenant or subscription identifiers, hashes from your estate, or incident
+        exports. Redact them, or reduce the case to the synthetic fixtures under
+        `clients/*/tests/fixtures/`. For a security problem, use private reporting
+        instead — see SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The release tag or commit, e.g. `defender-xdr-v0.3.6`.
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - servers/defender-xdr (MCP server)
+        - clients/defender-xdr (tool client)
+        - capability probe
+        - CI / packaging
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The tool or operation called, and what came back.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+      description: If it disagrees with the vendor portal, say what the portal shows.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction
+      description: The smallest sequence that shows it. Redacted output is fine.
+  - type: textarea
+    id: env
+    attributes:
+      label: Environment
+      description: Python version, MCP host, licensing tier if relevant, and what the capability probe reported.

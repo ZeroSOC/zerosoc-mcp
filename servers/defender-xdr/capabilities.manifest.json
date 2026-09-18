@@ -1,0 +1,1406 @@
+{
+  "server": "defender-xdr",
+  "version": "0.3.6",
+  "packages": {
+    "client": "zerosoc-defender-xdr",
+    "mcp_server": "zerosoc-mcp-defender-xdr"
+  },
+  "alert_type_map": "alert_types.defender-xdr.json",
+  "capabilities": {
+    "asset.cmdb": [
+      {
+        "tool": "mcp:defender-xdr/defender_get_machine_by_id",
+        "operation": "defender-xdr:get_machine",
+        "kind": "read",
+        "permissions": [
+          "Machine.Read.All"
+        ],
+        "requires_all": [
+          "api:mde.machines"
+        ],
+        "requires_any": [],
+        "notes": "device role, OS, exposure, tags and device value (list_software for the software inventory); business criticality comes from the SOC Knowledge Base"
+      }
+    ],
+    "identity.directory": [
+      {
+        "tool": "mcp:defender-xdr/defender_run_hunting_query",
+        "operation": "defender-xdr:run_hunting_query",
+        "kind": "read",
+        "permissions": [
+          "ThreatHunting.Read.All"
+        ],
+        "requires_all": [
+          "hunting:IdentityInfo"
+        ],
+        "requires_any": [],
+        "notes": "the IdentityInfo table: department, title, group membership, assigned roles"
+      },
+      {
+        "tool": "mcp:defender-xdr/defender_get_user_machines",
+        "operation": "defender-xdr:get_user_machines",
+        "kind": "read",
+        "permissions": [
+          "Machine.Read.All"
+        ],
+        "requires_all": [
+          "api:mde.machines"
+        ],
+        "requires_any": [],
+        "notes": "logon relationships only; role and privilege need a directory tool bound here"
+      }
+    ],
+    "cases.store": [
+      {
+        "tool": "mcp:defender-xdr/defender_list_incidents",
+        "operation": "defender-xdr:list_incidents",
+        "kind": "read",
+        "permissions": [
+          "SecurityIncident.Read.All"
+        ],
+        "requires_all": [
+          "api:graph.incidents"
+        ],
+        "requires_any": [],
+        "notes": "open and closed incidents and their entities; the 90-day retrospective sweep runs here, never through telemetry"
+      }
+    ],
+    "malware.repository": [
+      {
+        "tool": "mcp:defender-xdr/defender_get_file_info",
+        "operation": "defender-xdr:get_file_info",
+        "kind": "read",
+        "permissions": [
+          "File.Read.All"
+        ],
+        "requires_all": [
+          "api:mde.machines"
+        ],
+        "requires_any": [],
+        "notes": "prevalence and first seen by hash (get_file_statistics for the organization); only the hash leaves the environment"
+      }
+    ],
+    "decode": [
+      {
+        "tool": "mcp:defender-xdr/defender_decode_command",
+        "operation": "defender-xdr:decode_command",
+        "kind": "read",
+        "permissions": [],
+        "requires_all": [
+          "always:local"
+        ],
+        "requires_any": [],
+        "notes": "encoded PowerShell commands; timestamp_to_utc for time zones"
+      }
+    ],
+    "telemetry.endpoint": [
+      {
+        "tool": "mcp:defender-xdr/defender_run_hunting_query",
+        "operation": "defender-xdr:run_hunting_query",
+        "kind": "read",
+        "permissions": [
+          "ThreatHunting.Read.All"
+        ],
+        "requires_all": [
+          "hunting:DeviceProcessEvents"
+        ],
+        "requires_any": [],
+        "notes": "raw endpoint telemetry through the Device* hunting tables"
+      },
+      {
+        "tool": "mcp:defender-xdr/defender_get_incident_evidence",
+        "operation": "defender-xdr:get_incident_evidence",
+        "kind": "read",
+        "permissions": [
+          "SecurityIncident.Read.All"
+        ],
+        "requires_all": [
+          "api:graph.alerts"
+        ],
+        "requires_any": [],
+        "notes": "alert evidence only: there is no query language to translate playbook questions into; every question the evidence does not answer is a visibility gap"
+      }
+    ],
+    "telemetry.identity": [
+      {
+        "tool": "mcp:defender-xdr/entra_list_sign_ins",
+        "operation": "defender-xdr:list_sign_ins",
+        "kind": "read",
+        "permissions": [
+          "AuditLog.Read.All",
+          "Directory.Read.All"
+        ],
+        "requires_all": [
+          "api:graph.sign_ins"
+        ],
+        "requires_any": [],
+        "notes": "sign-in log (list_directory_audits for directory changes)"
+      },
+      {
+        "tool": "mcp:defender-xdr/defender_run_hunting_query",
+        "operation": "defender-xdr:run_hunting_query",
+        "kind": "read",
+        "permissions": [
+          "ThreatHunting.Read.All"
+        ],
+        "requires_all": [
+          "hunting:IdentityLogonEvents"
+        ],
+        "requires_any": [],
+        "notes": "the Identity* hunting tables"
+      }
+    ],
+    "telemetry.email": [
+      {
+        "tool": "mcp:defender-xdr/defender_run_hunting_query",
+        "operation": "defender-xdr:run_hunting_query",
+        "kind": "read",
+        "permissions": [
+          "ThreatHunting.Read.All"
+        ],
+        "requires_all": [
+          "hunting:EmailEvents"
+        ],
+        "requires_any": [],
+        "notes": "the Email* and UrlClickEvents hunting tables"
+      }
+    ],
+    "telemetry.cloud": [
+      {
+        "tool": "mcp:defender-xdr/defender_run_hunting_query",
+        "operation": "defender-xdr:run_hunting_query",
+        "kind": "read",
+        "permissions": [
+          "ThreatHunting.Read.All"
+        ],
+        "requires_all": [
+          "hunting:CloudAppEvents"
+        ],
+        "requires_any": [],
+        "notes": "the CloudAppEvents hunting table"
+      }
+    ],
+    "telemetry.network": [
+      {
+        "tool": "mcp:defender-xdr/defender_run_hunting_query",
+        "operation": "defender-xdr:run_hunting_query",
+        "kind": "read",
+        "permissions": [
+          "ThreatHunting.Read.All"
+        ],
+        "requires_all": [
+          "hunting:DeviceNetworkEvents"
+        ],
+        "requires_any": [],
+        "notes": "connections as seen by the endpoint sensor; no proxy, DNS or firewall logs"
+      }
+    ],
+    "siem.search": [
+      {
+        "tool": "mcp:defender-xdr/defender_run_hunting_query",
+        "operation": "defender-xdr:run_hunting_query",
+        "kind": "read",
+        "permissions": [
+          "ThreatHunting.Read.All"
+        ],
+        "requires_all": [],
+        "requires_any": [
+          "hunting:DeviceProcessEvents",
+          "hunting:IdentityLogonEvents",
+          "hunting:EmailEvents",
+          "hunting:CloudAppEvents"
+        ],
+        "notes": "cross-workload KQL over the hunting tables the tenant exposes, 30 days"
+      }
+    ],
+    "containment.isolate_host": [
+      {
+        "tool": "mcp:defender-xdr/defender_isolate_machine",
+        "operation": "defender-xdr:isolate_machine",
+        "kind": "action",
+        "permissions": [
+          "Machine.Isolate"
+        ],
+        "requires_all": [
+          "api:mde.machines",
+          "role:mde/Machine.Isolate"
+        ],
+        "requires_any": [],
+        "rollback": {
+          "tool": "mcp:defender-xdr/defender_unisolate_machine",
+          "operation": "defender-xdr:unisolate_machine"
+        }
+      }
+    ],
+    "containment.quarantine_file": [
+      {
+        "tool": "mcp:defender-xdr/defender_stop_and_quarantine_file",
+        "operation": "defender-xdr:stop_and_quarantine_file",
+        "kind": "action",
+        "permissions": [
+          "Machine.StopAndQuarantine"
+        ],
+        "requires_all": [
+          "api:mde.machines",
+          "role:mde/Machine.StopAndQuarantine"
+        ],
+        "requires_any": [],
+        "notes": "release from quarantine is done on the device or in the portal"
+      }
+    ],
+    "containment.block_indicator": [
+      {
+        "tool": "mcp:defender-xdr/defender_create_indicator",
+        "operation": "defender-xdr:create_indicator",
+        "kind": "action",
+        "permissions": [
+          "Ti.ReadWrite.All"
+        ],
+        "requires_all": [
+          "api:mde.machines",
+          "role:mde/Ti.ReadWrite.All"
+        ],
+        "requires_any": [],
+        "notes": "enforced on onboarded devices, not at the perimeter",
+        "rollback": {
+          "tool": "mcp:defender-xdr/defender_delete_indicator",
+          "operation": "defender-xdr:delete_indicator"
+        }
+      }
+    ],
+    "ticketing": [
+      {
+        "tool": "mcp:defender-xdr/defender_add_incident_comment",
+        "operation": "defender-xdr:add_incident_comment",
+        "kind": "write",
+        "permissions": [
+          "SecurityIncident.ReadWrite.All"
+        ],
+        "requires_all": [
+          "api:graph.incidents",
+          "role:graph/SecurityIncident.ReadWrite.All"
+        ],
+        "requires_any": [],
+        "notes": "tuning tickets as incident comments until a ticketing tool is bound"
+      }
+    ]
+  },
+  "data_sources": {
+    "AD/GPO & deployment-infrastructure logs": {
+      "any_of": []
+    },
+    "API gateway logs": {
+      "any_of": []
+    },
+    "Anti-virus / anti-malware": {
+      "any_of": [
+        "api:graph.alerts"
+      ],
+      "note": "antivirus detections arrive as alerts; antivirus health through the device health operations"
+    },
+    "Application & API gateway logs": {
+      "any_of": []
+    },
+    "Application / API logs": {
+      "any_of": []
+    },
+    "Application logs": {
+      "any_of": []
+    },
+    "Backup system logs": {
+      "any_of": []
+    },
+    "Backup-system logs": {
+      "any_of": []
+    },
+    "CASB": {
+      "any_of": [
+        "hunting:CloudAppEvents"
+      ]
+    },
+    "CASB / SaaS discovery": {
+      "any_of": [
+        "hunting:CloudAppEvents"
+      ]
+    },
+    "CASB / access-policy evaluation logs": {
+      "any_of": [
+        "hunting:CloudAppEvents"
+      ]
+    },
+    "CASB / access-policy logs": {
+      "any_of": [
+        "hunting:CloudAppEvents"
+      ]
+    },
+    "CDN / WAF logs": {
+      "any_of": []
+    },
+    "Change / maintenance schedule": {
+      "any_of": []
+    },
+    "Cloud & remote-access audit for vendor/MSP accounts": {
+      "any_of": []
+    },
+    "Cloud Security Posture Management (CSPM)": {
+      "any_of": []
+    },
+    "Cloud audit + billing/cost telemetry": {
+      "any_of": []
+    },
+    "Cloud billing / cost telemetry": {
+      "any_of": []
+    },
+    "Cloud control-plane audit logs": {
+      "any_of": []
+    },
+    "Cloud-storage audit logs": {
+      "any_of": []
+    },
+    "Compute/GPU utilization metrics": {
+      "any_of": []
+    },
+    "Configuration-management / backup diffs": {
+      "any_of": []
+    },
+    "Container / Kubernetes logs": {
+      "any_of": []
+    },
+    "Control-network flows": {
+      "any_of": []
+    },
+    "DLP": {
+      "any_of": []
+    },
+    "DLP / file-access audit logs": {
+      "any_of": []
+    },
+    "DNS logs": {
+      "any_of": []
+    },
+    "Data Loss Prevention (DLP)": {
+      "any_of": []
+    },
+    "Data classification labels": {
+      "any_of": []
+    },
+    "Database audit logs": {
+      "any_of": []
+    },
+    "Directory / identity-provider audit logs": {
+      "any_of": [
+        "api:graph.directory_audits"
+      ]
+    },
+    "Directory audit logs": {
+      "any_of": [
+        "api:graph.directory_audits"
+      ]
+    },
+    "EDR": {
+      "any_of": [
+        "hunting:DeviceProcessEvents"
+      ],
+      "fallback": "alert_evidence"
+    },
+    "EDR / endpoint process telemetry": {
+      "any_of": [
+        "hunting:DeviceProcessEvents"
+      ],
+      "fallback": "alert_evidence"
+    },
+    "EDR on web servers": {
+      "any_of": [
+        "hunting:DeviceProcessEvents"
+      ],
+      "fallback": "alert_evidence"
+    },
+    "Email detonation / sandbox": {
+      "any_of": [
+        "hunting:EmailUrlInfo",
+        "hunting:EmailAttachmentInfo"
+      ]
+    },
+    "Email gateway / attachment sandbox logs": {
+      "any_of": [
+        "hunting:EmailAttachmentInfo"
+      ]
+    },
+    "Email gateway / sandbox": {
+      "any_of": [
+        "hunting:EmailEvents"
+      ]
+    },
+    "Email gateway / secure email gateway": {
+      "any_of": [
+        "hunting:EmailEvents"
+      ]
+    },
+    "Email gateway logs": {
+      "any_of": [
+        "hunting:EmailEvents"
+      ]
+    },
+    "Endpoint telemetry": {
+      "any_of": [
+        "hunting:DeviceProcessEvents"
+      ],
+      "fallback": "alert_evidence"
+    },
+    "Engineering-workstation / HMI endpoint telemetry": {
+      "any_of": [
+        "hunting:DeviceProcessEvents"
+      ],
+      "fallback": "alert_evidence"
+    },
+    "File / object access audit logs": {
+      "any_of": []
+    },
+    "File audit + classification labels": {
+      "any_of": []
+    },
+    "File system / storage audit logs": {
+      "any_of": []
+    },
+    "File-integrity monitoring": {
+      "any_of": []
+    },
+    "Firewall logs": {
+      "any_of": []
+    },
+    "GPU / compute telemetry": {
+      "any_of": []
+    },
+    "HR context (joiner-mover-leaver)": {
+      "any_of": []
+    },
+    "Host-application logs for AI features": {
+      "any_of": []
+    },
+    "Hypervisor management-plane audit logs": {
+      "any_of": []
+    },
+    "Identity Provider / directory audit logs": {
+      "any_of": [
+        "api:graph.directory_audits"
+      ]
+    },
+    "Identity provider sign-in logs": {
+      "any_of": [
+        "api:graph.sign_ins",
+        "hunting:IdentityLogonEvents"
+      ]
+    },
+    "LLM / inference API logs (prompts + completions)": {
+      "any_of": []
+    },
+    "MFA logs": {
+      "any_of": [
+        "api:graph.sign_ins"
+      ],
+      "note": "authentication details of the sign-in log"
+    },
+    "Mailbox audit logs": {
+      "any_of": [
+        "hunting:CloudAppEvents"
+      ],
+      "note": "mailbox audit events reach hunting through the cloud apps table"
+    },
+    "Mailbox audit logs (pivot)": {
+      "any_of": [
+        "hunting:CloudAppEvents"
+      ],
+      "note": "mailbox audit events reach hunting through the cloud apps table"
+    },
+    "Model registry & ML-pipeline audit logs": {
+      "any_of": []
+    },
+    "Model-API usage logs": {
+      "any_of": []
+    },
+    "Netflow": {
+      "any_of": []
+    },
+    "Netflow (mining-pool destinations)": {
+      "any_of": []
+    },
+    "Netflow / DDoS appliance telemetry": {
+      "any_of": []
+    },
+    "Netflow / proxy / CASB egress logs": {
+      "any_of": []
+    },
+    "Netflow to/from the device": {
+      "any_of": [
+        "hunting:DeviceNetworkEvents"
+      ],
+      "note": "connections as seen by the endpoint sensor, not network flow records"
+    },
+    "Network / CASB / firewall logs": {
+      "any_of": []
+    },
+    "Network flow / NDR": {
+      "any_of": []
+    },
+    "Network-device AAA / admin logs": {
+      "any_of": []
+    },
+    "OT / ICS intrusion detection (IDS)": {
+      "any_of": []
+    },
+    "OT IDS": {
+      "any_of": []
+    },
+    "Process historian": {
+      "any_of": []
+    },
+    "Proxy / DNS / firewall egress logs": {
+      "any_of": []
+    },
+    "Proxy / DNS logs": {
+      "any_of": []
+    },
+    "Proxy / web gateway logs": {
+      "any_of": []
+    },
+    "Server EDR": {
+      "any_of": [
+        "hunting:DeviceProcessEvents"
+      ],
+      "fallback": "alert_evidence"
+    },
+    "Software inventory / SBOM": {
+      "any_of": [
+        "api:mde.software"
+      ],
+      "note": "endpoint software inventory from vulnerability management; no SBOM"
+    },
+    "Storage / hypervisor audit logs": {
+      "any_of": []
+    },
+    "Threat-intel / reputation enrichment (hash, IP, domain)": {
+      "any_of": []
+    },
+    "Training-data lineage": {
+      "any_of": []
+    },
+    "Update-infrastructure logs": {
+      "any_of": []
+    },
+    "Upstream ISP / scrubbing-provider telemetry": {
+      "any_of": []
+    },
+    "User-reported phishing mailbox": {
+      "any_of": [
+        "api:graph.alerts"
+      ],
+      "note": "through the platform's native user-report alert"
+    },
+    "VPN logs": {
+      "any_of": []
+    },
+    "Vendor advisories / threat intelligence": {
+      "any_of": []
+    },
+    "WAF logs": {
+      "any_of": []
+    },
+    "Web Application Firewall (WAF)": {
+      "any_of": []
+    }
+  },
+  "checks": {
+    "api": [
+      "graph.alerts",
+      "graph.directory_audits",
+      "graph.incidents",
+      "graph.sign_ins",
+      "mde.machine_actions",
+      "mde.machines",
+      "mde.software"
+    ],
+    "hunting": [
+      "AlertInfo",
+      "AlertEvidence",
+      "DeviceInfo",
+      "DeviceProcessEvents",
+      "DeviceNetworkEvents",
+      "DeviceFileEvents",
+      "DeviceRegistryEvents",
+      "DeviceLogonEvents",
+      "DeviceImageLoadEvents",
+      "DeviceEvents",
+      "DeviceTvmSoftwareInventory",
+      "DeviceTvmSoftwareVulnerabilities",
+      "IdentityInfo",
+      "IdentityLogonEvents",
+      "IdentityDirectoryEvents",
+      "IdentityQueryEvents",
+      "EmailEvents",
+      "EmailAttachmentInfo",
+      "EmailUrlInfo",
+      "EmailPostDeliveryEvents",
+      "UrlClickEvents",
+      "CloudAppEvents",
+      "DisruptionAndResponseEvents"
+    ]
+  },
+  "manual_checks": [
+    {
+      "id": "attack_disruption_actions",
+      "description": "Automatic attack disruption (for example a contained user) is not returned by the incident, alert or machine-action APIs. Where the DisruptionAndResponseEvents hunting table holds data, query it; otherwise check the incident's Action center in the portal by hand and record what it shows. Never report containment state without it.",
+      "automated_by": "hunting:DisruptionAndResponseEvents"
+    }
+  ],
+  "tools": [
+    {
+      "tool": "defender_get_capabilities",
+      "operation": "defender-xdr:get_capabilities",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.Read.All",
+        "SecurityAlert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_decode_command",
+      "operation": "defender-xdr:decode_command",
+      "kind": "read",
+      "api": "local",
+      "permissions": []
+    },
+    {
+      "tool": "defender_to_utc",
+      "operation": "defender-xdr:timestamp_to_utc",
+      "kind": "read",
+      "api": "local",
+      "permissions": []
+    },
+    {
+      "tool": "defender_get_exposure_score",
+      "operation": "defender-xdr:get_exposure_score",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Score.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_secure_score",
+      "operation": "defender-xdr:get_secure_score",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Score.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machine_group_exposure_score",
+      "operation": "defender-xdr:get_machine_group_exposure_score",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Score.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_device_health",
+      "operation": "defender-xdr:list_device_antivirus_health",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_export_antivirus_health",
+      "operation": "defender-xdr:export_antivirus_health",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_vulnerabilities",
+      "operation": "defender-xdr:list_vulnerabilities",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Vulnerability.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_vulnerability_by_id",
+      "operation": "defender-xdr:get_vulnerability",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Vulnerability.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machine_vulnerabilities",
+      "operation": "defender-xdr:get_machine_vulnerabilities",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Vulnerability.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machines_by_vulnerability",
+      "operation": "defender-xdr:get_machines_by_vulnerability",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Vulnerability.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_software",
+      "operation": "defender-xdr:list_software",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Software.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_software_by_id",
+      "operation": "defender-xdr:get_software",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Software.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_software_vulnerabilities",
+      "operation": "defender-xdr:get_software_vulnerabilities",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Software.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machines_by_software",
+      "operation": "defender-xdr:get_machines_by_software",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Software.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_software_version_distribution",
+      "operation": "defender-xdr:get_software_version_distribution",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Software.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_recommendations",
+      "operation": "defender-xdr:list_recommendations",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "SecurityRecommendation.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_recommendation_by_id",
+      "operation": "defender-xdr:get_recommendation",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "SecurityRecommendation.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_recommendation_machines",
+      "operation": "defender-xdr:get_recommendation_machines",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "SecurityRecommendation.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_recommendation_vulnerabilities",
+      "operation": "defender-xdr:get_recommendation_vulnerabilities",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "SecurityRecommendation.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_remediation_activities",
+      "operation": "defender-xdr:list_remediation_activities",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "RemediationTasks.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_remediation_activity_by_id",
+      "operation": "defender-xdr:get_remediation_activity",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "RemediationTasks.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_remediation_exposed_devices",
+      "operation": "defender-xdr:get_remediation_exposed_devices",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "RemediationTasks.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_export_assessment",
+      "operation": "defender-xdr:export_assessment",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Software.Read.All",
+        "Vulnerability.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machine_actions",
+      "operation": "defender-xdr:list_machine_actions",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machine_action_by_id",
+      "operation": "defender-xdr:get_machine_action",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_package_sas_uri",
+      "operation": "defender-xdr:get_package_uri",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.CollectForensics"
+      ]
+    },
+    {
+      "tool": "defender_get_live_response_result",
+      "operation": "defender-xdr:get_live_response_result",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.LiveResponse"
+      ]
+    },
+    {
+      "tool": "defender_get_investigations",
+      "operation": "defender-xdr:list_investigations",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Alert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_investigation_by_id",
+      "operation": "defender-xdr:get_investigation",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Alert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_list_library_files",
+      "operation": "defender-xdr:list_library_files",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Library.Manage"
+      ]
+    },
+    {
+      "tool": "defender_cancel_machine_action",
+      "operation": "defender-xdr:cancel_machine_action",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.Isolate",
+        "Machine.Scan",
+        "Machine.LiveResponse"
+      ]
+    },
+    {
+      "tool": "defender_run_live_response",
+      "operation": "defender-xdr:run_live_response",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.LiveResponse"
+      ]
+    },
+    {
+      "tool": "defender_start_investigation",
+      "operation": "defender-xdr:start_investigation",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Alert.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_upload_library_file",
+      "operation": "defender-xdr:upload_library_file",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Library.Manage"
+      ]
+    },
+    {
+      "tool": "defender_delete_library_file",
+      "operation": "defender-xdr:delete_library_file",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Library.Manage"
+      ]
+    },
+    {
+      "tool": "defender_get_indicators",
+      "operation": "defender-xdr:list_indicators",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Ti.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_create_indicator",
+      "operation": "defender-xdr:create_indicator",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Ti.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_import_indicators",
+      "operation": "defender-xdr:import_indicators",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Ti.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_delete_indicator",
+      "operation": "defender-xdr:delete_indicator",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Ti.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_batch_delete_indicators",
+      "operation": "defender-xdr:batch_delete_indicators",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Ti.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_get_file_info",
+      "operation": "defender-xdr:get_file_info",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "File.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_file_statistics",
+      "operation": "defender-xdr:get_file_statistics",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "File.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_file_alerts",
+      "operation": "defender-xdr:get_file_alerts",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Alert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_file_machines",
+      "operation": "defender-xdr:get_file_machines",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_domain_alerts",
+      "operation": "defender-xdr:get_domain_alerts",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Alert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_domain_machines",
+      "operation": "defender-xdr:get_domain_machines",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_domain_statistics",
+      "operation": "defender-xdr:get_domain_statistics",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Url.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_ip_alerts",
+      "operation": "defender-xdr:get_ip_alerts",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Alert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_ip_statistics",
+      "operation": "defender-xdr:get_ip_statistics",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Ip.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_user_alerts",
+      "operation": "defender-xdr:get_user_alerts",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Alert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_user_machines",
+      "operation": "defender-xdr:get_user_machines",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machines",
+      "operation": "defender-xdr:list_machines",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machine_by_id",
+      "operation": "defender-xdr:get_machine",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_find_machines_by_ip",
+      "operation": "defender-xdr:find_machines_by_ip",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_find_machines_by_tag",
+      "operation": "defender-xdr:find_machines_by_tag",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Machine.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machine_logon_users",
+      "operation": "defender-xdr:get_machine_logon_users",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "User.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_machine_alerts",
+      "operation": "defender-xdr:get_machine_alerts",
+      "kind": "read",
+      "api": "mde",
+      "permissions": [
+        "Alert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_update_machine",
+      "operation": "defender-xdr:update_machine",
+      "kind": "write",
+      "api": "mde",
+      "permissions": [
+        "Machine.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_add_remove_machine_tag",
+      "operation": "defender-xdr:add_remove_machine_tag",
+      "kind": "write",
+      "api": "mde",
+      "permissions": [
+        "Machine.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_isolate_machine",
+      "operation": "defender-xdr:isolate_machine",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.Isolate"
+      ]
+    },
+    {
+      "tool": "defender_unisolate_machine",
+      "operation": "defender-xdr:unisolate_machine",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.Isolate"
+      ]
+    },
+    {
+      "tool": "defender_run_av_scan",
+      "operation": "defender-xdr:run_av_scan",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.Scan"
+      ]
+    },
+    {
+      "tool": "defender_restrict_code_execution",
+      "operation": "defender-xdr:restrict_code_execution",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.RestrictExecution"
+      ]
+    },
+    {
+      "tool": "defender_unrestrict_code_execution",
+      "operation": "defender-xdr:unrestrict_code_execution",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.RestrictExecution"
+      ]
+    },
+    {
+      "tool": "defender_stop_and_quarantine_file",
+      "operation": "defender-xdr:stop_and_quarantine_file",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.StopAndQuarantine"
+      ]
+    },
+    {
+      "tool": "defender_collect_investigation_package",
+      "operation": "defender-xdr:collect_investigation_package",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.CollectForensics"
+      ]
+    },
+    {
+      "tool": "defender_offboard_machine",
+      "operation": "defender-xdr:offboard_machine",
+      "kind": "action",
+      "api": "mde",
+      "permissions": [
+        "Machine.Offboard"
+      ]
+    },
+    {
+      "tool": "entra_list_sign_ins",
+      "operation": "defender-xdr:list_sign_ins",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "AuditLog.Read.All",
+        "Directory.Read.All"
+      ]
+    },
+    {
+      "tool": "entra_list_directory_audits",
+      "operation": "defender-xdr:list_directory_audits",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "AuditLog.Read.All",
+        "Directory.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_run_hunting_query",
+      "operation": "defender-xdr:run_hunting_query",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "ThreatHunting.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_list_alerts",
+      "operation": "defender-xdr:list_alerts",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityAlert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_alert",
+      "operation": "defender-xdr:get_alert",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityAlert.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_update_alert",
+      "operation": "defender-xdr:update_alert",
+      "kind": "write",
+      "api": "graph",
+      "permissions": [
+        "SecurityAlert.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_add_alert_comment",
+      "operation": "defender-xdr:add_alert_comment",
+      "kind": "write",
+      "api": "graph",
+      "permissions": [
+        "SecurityAlert.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_list_incidents",
+      "operation": "defender-xdr:list_incidents",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_incident",
+      "operation": "defender-xdr:get_incident",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_resolve_incident",
+      "operation": "defender-xdr:resolve_incident",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_incident_alerts",
+      "operation": "defender-xdr:get_incident_alerts",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_incident_evidence",
+      "operation": "defender-xdr:get_incident_evidence",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_update_incident",
+      "operation": "defender-xdr:update_incident",
+      "kind": "write",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.ReadWrite.All"
+      ]
+    },
+    {
+      "tool": "defender_add_incident_comment",
+      "operation": "defender-xdr:add_incident_comment",
+      "kind": "write",
+      "api": "graph",
+      "permissions": [
+        "SecurityIncident.ReadWrite.All"
+      ]
+    }
+  ]
+}

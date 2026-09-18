@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/ZeroSOC/zerosoc-skills/capabilities/zerosoc.capabilities.schema.json",
+  "title": "ZeroSOC capability binding",
+  "type": "object",
+  "required": [
+    "capabilities",
+    "data_sources"
+  ],
+  "properties": {
+    "deployment": {
+      "type": "string",
+      "description": "Free-text label of the deployment this binding describes."
+    },
+    "capabilities": {
+      "type": "object",
+      "description": "capability class -> tool binding",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "tool"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string",
+            "description": "What the host invokes: an MCP server/tool, a CLI, an endpoint."
+          },
+          "notes": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "data_sources": {
+      "type": "object",
+      "description": "required_data_sources name (as written in playbook frontmatter) -> available to the executor",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "data_source_notes": {
+      "type": "object",
+      "description": "required_data_sources name -> why it is unavailable or limited; printed with the visibility gap",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "alert_type_map": {
+      "type": "string",
+      "description": "File name of the deployment's alert-type map (source alert -> framework alert type), next to the binding file; consumed by scripts/alert_types.py"
+    }
+  }
+}

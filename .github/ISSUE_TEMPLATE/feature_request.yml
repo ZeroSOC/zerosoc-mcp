@@ -1,0 +1,30 @@
+name: Feature request
+description: A tool, operation or capability that should exist.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What should exist
+      description: The capability, in terms of the question an agent needs answered.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why the existing tools are not enough
+    validations:
+      required: true
+  - type: input
+    id: api
+    attributes:
+      label: Vendor API that backs it
+      description: The documented endpoint or table, and the permission it needs.
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Boundaries
+      description: |
+        Is it read-only or a write? If it can change a tenant, it is gated by default.
+        Does availability depend on licensing or onboarding state? Should the
+        capability probe report it?

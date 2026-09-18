@@ -1,0 +1,30 @@
+name: Technology coverage request
+description: Ask for a security technology to be covered by an MCP server.
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Coverage follows the operating model in the README: **Adopt** an adequate
+        official server, **Contribute** to a partial one, **Build** only where
+        nothing usable exists.
+  - type: input
+    id: vendor
+    attributes:
+      label: Vendor and product
+    validations:
+      required: true
+  - type: textarea
+    id: existing
+    attributes:
+      label: Existing MCP servers
+      description: Links to any official or third-party server, and what they do not cover. "None that I could find" is a valid answer.
+    validations:
+      required: true
+  - type: textarea
+    id: api
+    attributes:
+      label: API surface
+      description: The public API, its auth model, and whether the docs are open.
+    validations:
+      required: true

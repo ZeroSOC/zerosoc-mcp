@@ -1,0 +1,327 @@
+{
+ "_comment": "Framework required_data_sources name -> the probe checks that make it available through this integration (any of). An empty list: this technology never provides it. Names follow the framework playbooks' frontmatter.",
+ "data_sources": {
+  "AD/GPO & deployment-infrastructure logs": {
+   "any_of": []
+  },
+  "API gateway logs": {
+   "any_of": []
+  },
+  "Anti-virus / anti-malware": {
+   "any_of": [
+    "api:graph.alerts"
+   ],
+   "note": "antivirus detections arrive as alerts; antivirus health through the device health operations"
+  },
+  "Application & API gateway logs": {
+   "any_of": []
+  },
+  "Application / API logs": {
+   "any_of": []
+  },
+  "Application logs": {
+   "any_of": []
+  },
+  "Backup system logs": {
+   "any_of": []
+  },
+  "Backup-system logs": {
+   "any_of": []
+  },
+  "CASB": {
+   "any_of": [
+    "hunting:CloudAppEvents"
+   ]
+  },
+  "CASB / SaaS discovery": {
+   "any_of": [
+    "hunting:CloudAppEvents"
+   ]
+  },
+  "CASB / access-policy evaluation logs": {
+   "any_of": [
+    "hunting:CloudAppEvents"
+   ]
+  },
+  "CASB / access-policy logs": {
+   "any_of": [
+    "hunting:CloudAppEvents"
+   ]
+  },
+  "CDN / WAF logs": {
+   "any_of": []
+  },
+  "Change / maintenance schedule": {
+   "any_of": []
+  },
+  "Cloud & remote-access audit for vendor/MSP accounts": {
+   "any_of": []
+  },
+  "Cloud Security Posture Management (CSPM)": {
+   "any_of": []
+  },
+  "Cloud audit + billing/cost telemetry": {
+   "any_of": []
+  },
+  "Cloud billing / cost telemetry": {
+   "any_of": []
+  },
+  "Cloud control-plane audit logs": {
+   "any_of": []
+  },
+  "Cloud-storage audit logs": {
+   "any_of": []
+  },
+  "Compute/GPU utilization metrics": {
+   "any_of": []
+  },
+  "Configuration-management / backup diffs": {
+   "any_of": []
+  },
+  "Container / Kubernetes logs": {
+   "any_of": []
+  },
+  "Control-network flows": {
+   "any_of": []
+  },
+  "DLP": {
+   "any_of": []
+  },
+  "DLP / file-access audit logs": {
+   "any_of": []
+  },
+  "DNS logs": {
+   "any_of": []
+  },
+  "Data Loss Prevention (DLP)": {
+   "any_of": []
+  },
+  "Data classification labels": {
+   "any_of": []
+  },
+  "Database audit logs": {
+   "any_of": []
+  },
+  "Directory / identity-provider audit logs": {
+   "any_of": [
+    "api:graph.directory_audits"
+   ]
+  },
+  "Directory audit logs": {
+   "any_of": [
+    "api:graph.directory_audits"
+   ]
+  },
+  "EDR": {
+   "any_of": [
+    "hunting:DeviceProcessEvents"
+   ],
+   "fallback": "alert_evidence"
+  },
+  "EDR / endpoint process telemetry": {
+   "any_of": [
+    "hunting:DeviceProcessEvents"
+   ],
+   "fallback": "alert_evidence"
+  },
+  "EDR on web servers": {
+   "any_of": [
+    "hunting:DeviceProcessEvents"
+   ],
+   "fallback": "alert_evidence"
+  },
+  "Email detonation / sandbox": {
+   "any_of": [
+    "hunting:EmailUrlInfo",
+    "hunting:EmailAttachmentInfo"
+   ]
+  },
+  "Email gateway / attachment sandbox logs": {
+   "any_of": [
+    "hunting:EmailAttachmentInfo"
+   ]
+  },
+  "Email gateway / sandbox": {
+   "any_of": [
+    "hunting:EmailEvents"
+   ]
+  },
+  "Email gateway / secure email gateway": {
+   "any_of": [
+    "hunting:EmailEvents"
+   ]
+  },
+  "Email gateway logs": {
+   "any_of": [
+    "hunting:EmailEvents"
+   ]
+  },
+  "Endpoint telemetry": {
+   "any_of": [
+    "hunting:DeviceProcessEvents"
+   ],
+   "fallback": "alert_evidence"
+  },
+  "Engineering-workstation / HMI endpoint telemetry": {
+   "any_of": [
+    "hunting:DeviceProcessEvents"
+   ],
+   "fallback": "alert_evidence"
+  },
+  "File / object access audit logs": {
+   "any_of": []
+  },
+  "File audit + classification labels": {
+   "any_of": []
+  },
+  "File system / storage audit logs": {
+   "any_of": []
+  },
+  "File-integrity monitoring": {
+   "any_of": []
+  },
+  "Firewall logs": {
+   "any_of": []
+  },
+  "GPU / compute telemetry": {
+   "any_of": []
+  },
+  "HR context (joiner-mover-leaver)": {
+   "any_of": []
+  },
+  "Host-application logs for AI features": {
+   "any_of": []
+  },
+  "Hypervisor management-plane audit logs": {
+   "any_of": []
+  },
+  "Identity Provider / directory audit logs": {
+   "any_of": [
+    "api:graph.directory_audits"
+   ]
+  },
+  "Identity provider sign-in logs": {
+   "any_of": [
+    "api:graph.sign_ins",
+    "hunting:IdentityLogonEvents"
+   ]
+  },
+  "LLM / inference API logs (prompts + completions)": {
+   "any_of": []
+  },
+  "MFA logs": {
+   "any_of": [
+    "api:graph.sign_ins"
+   ],
+   "note": "authentication details of the sign-in log"
+  },
+  "Mailbox audit logs": {
+   "any_of": [
+    "hunting:CloudAppEvents"
+   ],
+   "note": "mailbox audit events reach hunting through the cloud apps table"
+  },
+  "Mailbox audit logs (pivot)": {
+   "any_of": [
+    "hunting:CloudAppEvents"
+   ],
+   "note": "mailbox audit events reach hunting through the cloud apps table"
+  },
+  "Model registry & ML-pipeline audit logs": {
+   "any_of": []
+  },
+  "Model-API usage logs": {
+   "any_of": []
+  },
+  "Netflow": {
+   "any_of": []
+  },
+  "Netflow (mining-pool destinations)": {
+   "any_of": []
+  },
+  "Netflow / DDoS appliance telemetry": {
+   "any_of": []
+  },
+  "Netflow / proxy / CASB egress logs": {
+   "any_of": []
+  },
+  "Netflow to/from the device": {
+   "any_of": [
+    "hunting:DeviceNetworkEvents"
+   ],
+   "note": "connections as seen by the endpoint sensor, not network flow records"
+  },
+  "Network / CASB / firewall logs": {
+   "any_of": []
+  },
+  "Network flow / NDR": {
+   "any_of": []
+  },
+  "Network-device AAA / admin logs": {
+   "any_of": []
+  },
+  "OT / ICS intrusion detection (IDS)": {
+   "any_of": []
+  },
+  "OT IDS": {
+   "any_of": []
+  },
+  "Process historian": {
+   "any_of": []
+  },
+  "Proxy / DNS / firewall egress logs": {
+   "any_of": []
+  },
+  "Proxy / DNS logs": {
+   "any_of": []
+  },
+  "Proxy / web gateway logs": {
+   "any_of": []
+  },
+  "Server EDR": {
+   "any_of": [
+    "hunting:DeviceProcessEvents"
+   ],
+   "fallback": "alert_evidence"
+  },
+  "Software inventory / SBOM": {
+   "any_of": [
+    "api:mde.software"
+   ],
+   "note": "endpoint software inventory from vulnerability management; no SBOM"
+  },
+  "Storage / hypervisor audit logs": {
+   "any_of": []
+  },
+  "Threat-intel / reputation enrichment (hash, IP, domain)": {
+   "any_of": []
+  },
+  "Training-data lineage": {
+   "any_of": []
+  },
+  "Update-infrastructure logs": {
+   "any_of": []
+  },
+  "Upstream ISP / scrubbing-provider telemetry": {
+   "any_of": []
+  },
+  "User-reported phishing mailbox": {
+   "any_of": [
+    "api:graph.alerts"
+   ],
+   "note": "through the platform's native user-report alert"
+  },
+  "VPN logs": {
+   "any_of": []
+  },
+  "Vendor advisories / threat intelligence": {
+   "any_of": []
+  },
+  "WAF logs": {
+   "any_of": []
+  },
+  "Web Application Firewall (WAF)": {
+   "any_of": []
+  }
+ }
+}

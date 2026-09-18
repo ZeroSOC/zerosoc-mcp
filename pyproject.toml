@@ -1,0 +1,53 @@
+[project]
+name = "zerosoc-mcp-workspace"
+version = "0"
+description = "Workspace root of the ZeroSOC MCP servers and tool clients (not published)"
+requires-python = ">=3.11"
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["clients/*", "servers/*"]
+
+[tool.uv.sources]
+zerosoc-defender-xdr = { workspace = true }
+zerosoc-mcp-defender-xdr = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "zerosoc-defender-xdr",
+    "zerosoc-mcp-defender-xdr",
+    "pytest>=8",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+    "mypy>=1.11",
+    "bandit>=1.7",
+    "pip-audit>=2.7",
+    "jsonschema>=4.23",
+    "types-jsonschema",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["clients", "servers"]
+asyncio_mode = "auto"
+addopts = "-q --import-mode=importlib"
+pythonpath = ["clients/defender-xdr/tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = ["**/node_modules", "**/dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S"]
+ignore = ["S101", "E501"]  # the formatter holds code to the width; prose in docstrings is wrapped by hand
+
+[tool.ruff.lint.per-file-ignores]
+"**/tests/*" = ["S105", "S106"]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+mypy_path = "clients/defender-xdr/src:servers/defender-xdr/src"
+files = ["clients/defender-xdr/src", "servers/defender-xdr/src"]

