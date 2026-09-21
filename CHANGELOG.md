@@ -1,5 +1,26 @@
 # Changelog
 
+## defender-xdr 0.3.7 (2026-09-21)
+
+**Added**
+- `DefenderClient.incident_record(id)`: the **data plane** of an incident — the master after the
+  merge chain, with every alert, in one `$expand=alerts` whose own paging is followed once. No
+  `top`, no `skip`, no summary: a reader that maps an incident to a record needs all of it, at one
+  instant, and is not billed by the token. It is not an MCP tool; the agent's surface is unchanged.
+
+**Fixed**
+- The walk of the alert expansion was bounded only by the number of alerts read, which stops it
+  only while each page carries some: a page answering with none and still offering a next link was
+  followed forever. The walk now stops at `MAX_ALERT_PAGES` as well, and reports it as it reports
+  the alert ceiling.
+
+**Changed**
+- `defender_get_incident_alerts` and `defender_get_incident_evidence` page and summarize *that*
+  record instead of expanding the incident again. A reader that paged a 60-alert incident fifty at
+  a time previously paid one complete expansion per page, and two pages could disagree because they
+  were two reads of a live incident. One API call is still implemented once: the agent-plane
+  operation calls the data-plane method rather than reimplementing it.
+
 ## defender-xdr 0.3.6 (2026-09-18)
 
 First release from the public repository.

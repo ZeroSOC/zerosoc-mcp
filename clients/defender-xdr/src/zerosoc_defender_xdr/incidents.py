@@ -19,6 +19,10 @@ IncidentStatus = Literal["active", "resolved", "inProgress", "redirected", "awai
 
 MAX_REDIRECTS = 10
 MAX_ALERTS = 2000
+MAX_ALERT_PAGES = 100
+"""How many pages of the alert expansion are followed. The ceiling above bounds the alerts, which
+only stops the walk while each page carries some: a page that answers with none and still offers a
+next link would otherwise be followed forever. Both bounds are reported the same way."""
 _SUMMARY = (
     "id",
     "title",
@@ -38,6 +42,29 @@ _WRITE = ("SecurityIncident.ReadWrite.All",)
 
 
 class Incidents(Surface):
+    async def incident_record(self, incident_id: str) -> JsonObject:
+        """**The data plane**: the whole incident in one call, for a reader that maps it to a
+        record rather than showing it to a model.
+
+        The merge chain is followed to the master, the alerts come with it in a single
+        ``$expand=alerts`` and the expansion's own paging is followed once. There is no ``top``,
+        no ``skip`` and no summary: a deterministic reader needs all of it, reads it at one
+        instant, and is not billed by the token. The agent-plane operations below page and
+        summarize *this* record; none of them fetches the incident a second time.
+
+        ``alertsTruncated`` is true where the incident has more alerts than this client reads to,
+        and it is part of the record: a reader that drops it builds a Case silently missing alerts.
+        """
+        master, walked = await self._master(incident_id, expand_alerts=True)
+        alerts, truncated = await self._all_alerts(master)
+        return {
+            "incidentId": str(master.get("id", incident_id)),
+            "redirectedFrom": walked,
+            "alertsTruncated": truncated,
+            **{k: v for k, v in master.items() if not k.startswith("alerts")},
+            "alerts": alerts,
+        }
+
     @operation(tool="defender_list_incidents", api="graph", permissions=_READ)
     async def list_incidents(
         self,
@@ -97,14 +124,14 @@ class Incidents(Surface):
         category, MITRE techniques, detection source, timestamps and nested evidence. For the
         entities themselves prefer defender_get_incident_evidence, which flattens and de-duplicates
         the evidence of every alert in one call."""
-        incident, _ = await self._master(incident_id, expand_alerts=True)
-        alerts, truncated = await self._all_alerts(incident)
+        record = await self.incident_record(incident_id)
+        alerts: list[dict[str, Any]] = list(record["alerts"])
         size, skip = capped(top, 10, 50), max(0, skip)
         page = alerts[skip : skip + size]
         return {
-            "incidentId": str(incident.get("id", incident_id)),
+            "incidentId": record["incidentId"],
             "totalAlerts": len(alerts),
-            "alertsTruncated": truncated,
+            "alertsTruncated": record["alertsTruncated"],
             "skip": skip,
             "top": size,
             "returned": len(page),
@@ -140,8 +167,8 @@ class Incidents(Surface):
         ID, IP, registry key and value, detailed roles, verdict and remediation status. Follows a
         merged incident to its master. These are the entities the alerts cite, not raw telemetry:
         processes the detection did not flag are not here."""
-        incident, walked = await self._master(incident_id, expand_alerts=True)
-        alerts, truncated = await self._all_alerts(incident)
+        record = await self.incident_record(incident_id)
+        alerts, truncated = list(record["alerts"]), bool(record["alertsTruncated"])
         result = inventory(alerts)
         wanted = {t.strip().lower() for t in types or []}
         matching = [e for e in result.pop("entities") if not wanted or e["type"] in wanted]
@@ -156,8 +183,8 @@ class Incidents(Surface):
             else {}
         )
         return {
-            "incidentId": str(incident.get("id", incident_id)),
-            "redirectedFrom": walked,
+            "incidentId": record["incidentId"],
+            "redirectedFrom": record["redirectedFrom"],
             "alertsTruncated": truncated,
             **note,
             **result,
@@ -245,8 +272,10 @@ class Incidents(Surface):
         expansion itself can be paged."""
         alerts: list[dict[str, Any]] = list(incident.get("alerts") or [])
         next_link = incident.get("alerts@odata.nextLink")
-        while next_link and len(alerts) < MAX_ALERTS:
+        pages = 0
+        while next_link and len(alerts) < MAX_ALERTS and pages < MAX_ALERT_PAGES:
             page = await self._api.follow(GRAPH, str(next_link), "/security/incidents/alerts")
             alerts.extend(page.get("value") or [])
             next_link = page.get("@odata.nextLink")
+            pages += 1
         return alerts[:MAX_ALERTS], bool(next_link) or len(alerts) > MAX_ALERTS
