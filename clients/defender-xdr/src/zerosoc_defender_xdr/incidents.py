@@ -39,14 +39,17 @@ _WRITE = ("SecurityIncident.ReadWrite.All",)
 
 class Incidents(Surface):
     async def incident_record(self, incident_id: str) -> JsonObject:
-        """**Data plane** (ADR-0009): the whole incident in one call, for a reader that maps it to
-        a record rather than showing it to a model.
+        """**The data plane**: the whole incident in one call, for a reader that maps it to a
+        record rather than showing it to a model.
 
         The merge chain is followed to the master, the alerts come with it in a single
         ``$expand=alerts`` and the expansion's own paging is followed once. There is no ``top``,
         no ``skip`` and no summary: a deterministic reader needs all of it, reads it at one
         instant, and is not billed by the token. The agent-plane operations below page and
         summarize *this* record; none of them fetches the incident a second time.
+
+        ``alertsTruncated`` is true where the incident has more alerts than this client reads to,
+        and it is part of the record: a reader that drops it builds a Case silently missing alerts.
         """
         master, walked = await self._master(incident_id, expand_alerts=True)
         alerts, truncated = await self._all_alerts(master)
