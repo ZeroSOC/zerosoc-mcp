@@ -80,13 +80,21 @@ jobs:
       - name: Run the README command against this commit
         working-directory: repo
         run: |
+          # The requirement is pinned to this commit. Unpinned, uv asks the clone for its default
+          # branch, and a pull-request checkout has no branch for it to find:
+          # `git rev-parse refs/remotes/origin/HEAD` fails and the job never reaches the
+          # resolution it exists to test. A push to main has a branch, so this only ever showed on
+          # a pull request, and only on one whose uv cache did not already hold the checkout.
+          # A user follows the README with a URL and a tag; here the commit under test is the
+          # revision, which is what this job means by "against this commit".
           REF="$PWD"
+          REV="$(git rev-parse HEAD)"
           cd "$RUNNER_TEMP"
-          uvx --from "git+file://$REF#subdirectory=servers/defender-xdr" \
-              --with "git+file://$REF#subdirectory=clients/defender-xdr" \
+          uvx --from "git+file://$REF@$REV#subdirectory=servers/defender-xdr" \
+              --with "git+file://$REF@$REV#subdirectory=clients/defender-xdr" \
               --python 3.12 \
               mcp-defender-xdr --help > /dev/null 2>&1 || true
-          uvx --from "git+file://$REF#subdirectory=servers/defender-xdr" \
-              --with "git+file://$REF#subdirectory=clients/defender-xdr" \
+          uvx --from "git+file://$REF@$REV#subdirectory=servers/defender-xdr" \
+              --with "git+file://$REF@$REV#subdirectory=clients/defender-xdr" \
               --python 3.12 \
               python -c "import zerosoc_mcp_defender_xdr, zerosoc_defender_xdr; print('resolved', zerosoc_defender_xdr.__name__)"
