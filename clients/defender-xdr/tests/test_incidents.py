@@ -278,3 +278,31 @@ async def test_the_agent_plane_pages_the_same_record_without_expanding_it_again(
 
     assert len(script.sent("GET", "/security/incidents/14")) == 1
     assert (page["totalAlerts"], page["returned"], page["hasMore"]) == (3, 2, True)
+
+
+async def test_an_expansion_that_never_ends_is_stopped_and_says_so(
+    client: DefenderClient, script: Script
+) -> None:
+    """A page that answers with no alerts and still offers a next link used to be followed for as
+    long as the source offered one: the alert ceiling only stops a walk that is making progress."""
+    script.json(
+        "GET",
+        f"{G}/security/incidents/14",
+        {
+            "id": "14",
+            "status": "active",
+            "alerts": [{"id": "da-1"}],
+            "alerts@odata.nextLink": f"{G}/security/incidents/14/alerts?$skiptoken=2",
+        },
+    )
+    script.json(
+        "GET",
+        f"{G}/security/incidents/14/alerts",
+        {"value": [], "@odata.nextLink": f"{G}/security/incidents/14/alerts?$skiptoken=3"},
+    )
+
+    record = await client.incident_record("14")
+
+    assert [a["id"] for a in record["alerts"]] == ["da-1"]
+    assert record["alertsTruncated"] is True, "what was not read is said, not passed over"
+    assert len(script.sent("GET", "/security/incidents/14/alerts")) == 100

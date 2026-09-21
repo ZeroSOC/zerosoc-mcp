@@ -19,6 +19,10 @@ IncidentStatus = Literal["active", "resolved", "inProgress", "redirected", "awai
 
 MAX_REDIRECTS = 10
 MAX_ALERTS = 2000
+MAX_ALERT_PAGES = 100
+"""How many pages of the alert expansion are followed. The ceiling above bounds the alerts, which
+only stops the walk while each page carries some: a page that answers with none and still offers a
+next link would otherwise be followed forever. Both bounds are reported the same way."""
 _SUMMARY = (
     "id",
     "title",
@@ -268,8 +272,10 @@ class Incidents(Surface):
         expansion itself can be paged."""
         alerts: list[dict[str, Any]] = list(incident.get("alerts") or [])
         next_link = incident.get("alerts@odata.nextLink")
-        while next_link and len(alerts) < MAX_ALERTS:
+        pages = 0
+        while next_link and len(alerts) < MAX_ALERTS and pages < MAX_ALERT_PAGES:
             page = await self._api.follow(GRAPH, str(next_link), "/security/incidents/alerts")
             alerts.extend(page.get("value") or [])
             next_link = page.get("@odata.nextLink")
+            pages += 1
         return alerts[:MAX_ALERTS], bool(next_link) or len(alerts) > MAX_ALERTS
