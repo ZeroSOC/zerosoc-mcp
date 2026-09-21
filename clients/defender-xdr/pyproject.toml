@@ -1,6 +1,6 @@
 [project]
 name = "zerosoc-defender-xdr"
-version = "0.3.6"
+version = "0.3.7"
 description = "Typed tool client for Microsoft Defender XDR: Microsoft Graph security, Defender for Endpoint and Entra ID logs. The MCP server in servers/defender-xdr is a thin wrapper over it."
 readme = "README.md"
 license = "Apache-2.0"

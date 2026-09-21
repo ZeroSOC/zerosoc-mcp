@@ -1736,7 +1736,7 @@ wheels = [
 
 [[package]]
 name = "zerosoc-defender-xdr"
-version = "0.3.6"
+version = "0.3.7"
 source = { editable = "clients/defender-xdr" }
 dependencies = [
     { name = "httpx" },
@@ -1751,7 +1751,7 @@ requires-dist = [
 
 [[package]]
 name = "zerosoc-mcp-defender-xdr"
-version = "0.3.6"
+version = "0.3.7"
 source = { editable = "servers/defender-xdr" }
 dependencies = [
     { name = "mcp" },

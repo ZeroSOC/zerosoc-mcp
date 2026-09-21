@@ -215,3 +215,66 @@ async def test_a_negative_skip_is_no_skip(client: DefenderClient, script: Script
     script.json("GET", f"{G}/security/incidents/14", INCIDENT_14)
     page = await client.get_incident_alerts("14", skip=-5, summary_only=True)
     assert [a["id"] for a in page["alerts"]] == ["da-1", "da-2", "da-3"]
+
+
+# --- the data plane: complete records, one call (ADR-0009) ----------------------------------------
+
+
+async def test_an_incident_record_is_one_expansion_whatever_the_alert_count(
+    client: DefenderClient, script: Script
+) -> None:
+    """The deterministic reader takes the whole incident in one call. Paging it for a model's
+    budget cost one read per page, each re-expanding the incident and slicing the result."""
+    script.json("GET", f"{G}/security/incidents/14", INCIDENT_14)
+
+    record = await client.incident_record("14")
+
+    assert len(script.sent("GET", "/security/incidents/14")) == 1
+    assert [a["id"] for a in record["alerts"]] == ["da-1", "da-2", "da-3"]
+    assert record["incidentId"] == "14" and record["redirectedFrom"] == []
+    assert record["alertsTruncated"] is False
+    assert record["displayName"] == INCIDENT_14["displayName"], "the incident itself, whole"
+    assert "alerts@odata.nextLink" not in record
+
+
+async def test_an_incident_record_follows_the_merge_chain_and_reads_the_master(
+    client: DefenderClient, script: Script
+) -> None:
+    merged(script)
+
+    record = await client.incident_record("17")
+
+    assert record["incidentId"] == "14" and record["redirectedFrom"] == ["17"]
+    assert len(record["alerts"]) == 3
+    assert len(script.sent("GET", "/security/incidents")) == 2, "one hop, then the master"
+
+
+async def test_an_incident_record_follows_the_expansion_paging_once(
+    client: DefenderClient, script: Script
+) -> None:
+    first = {
+        "id": "14",
+        "status": "active",
+        "alerts": [{"id": "da-1"}],
+        "alerts@odata.nextLink": f"{G}/security/incidents/14/alerts?$skiptoken=2",
+    }
+    script.json("GET", f"{G}/security/incidents/14", first)
+    script.json("GET", f"{G}/security/incidents/14/alerts", {"value": [{"id": "da-2"}]})
+
+    record = await client.incident_record("14")
+
+    assert [a["id"] for a in record["alerts"]] == ["da-1", "da-2"]
+    assert len(script.sent("GET", "/security/incidents/14/alerts")) == 1
+
+
+async def test_the_agent_plane_pages_the_same_record_without_expanding_it_again(
+    client: DefenderClient, script: Script
+) -> None:
+    """The MCP tool keeps its shape for a model and calls the data plane: one API call is still
+    implemented once (ADR-0005), and the page is cut from the record rather than re-fetched."""
+    script.json("GET", f"{G}/security/incidents/14", INCIDENT_14)
+
+    page = await client.get_incident_alerts("14", top=2, skip=0)
+
+    assert len(script.sent("GET", "/security/incidents/14")) == 1
+    assert (page["totalAlerts"], page["returned"], page["hasMore"]) == (3, 2, True)
