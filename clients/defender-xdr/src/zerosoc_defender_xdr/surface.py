@@ -14,6 +14,7 @@ class Surface:
 
     _api: Transport
     _allow_actions: bool
+    _entitlements: frozenset[str] | None
 
     async def _mde_get(self, path: str) -> JsonObject:
         return await self._api.request(MDE, "GET", path)
