@@ -64,6 +64,7 @@ Determination = Literal[
     "phishing",
     "maliciousUserActivity",
     "notMalicious",
+    "notEnoughDataToValidate",
     "lineOfBusinessApplication",
     "confirmedActivity",
     "other",
