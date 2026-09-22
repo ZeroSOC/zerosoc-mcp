@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+**Added**
+- `update_incident` writes `severity`, `resolvingComment` and `description` alongside the status,
+  classification and determination it already wrote. All three are documented as writable and none
+  carried a documented limit; these were measured against a live incident — a ladder of lengths,
+  each write read back, so a value stored short is told apart from one stored whole. An executor
+  that resolves an incident can now leave the record agreeing with itself in one write: the
+  severity it decided, why it classified as it did, and an account a reader sees without leaving
+  the incident page.
+
+**Fixed**
+- `resolvingComment` past 30,000 characters is refused rather than sent. The API answers 200 and
+  keeps the first 30,000, so a caller was told the write succeeded and lost the tail without
+  anything saying so. `description` has no bound worth stating — a megabyte is accepted and read
+  back whole — and is a whole-value replace over the product's own text, which its description now
+  says.
+
 ## defender-xdr 0.3.7 (2026-09-21)
 
 **Added**
