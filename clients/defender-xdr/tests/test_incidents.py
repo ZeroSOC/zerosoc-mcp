@@ -306,3 +306,42 @@ async def test_an_expansion_that_never_ends_is_stopped_and_says_so(
     assert [a["id"] for a in record["alerts"]] == ["da-1"]
     assert record["alertsTruncated"] is True, "what was not read is said, not passed over"
     assert len(script.sent("GET", "/security/incidents/14/alerts")) == 100
+
+
+async def test_the_other_write_surfaces_go_in_the_same_patch(
+    client: DefenderClient, script: Script
+) -> None:
+    """Severity, the resolving comment and the description are writable properties of the incident,
+    measured against a live one: an executor that closes a Case in the source sets them with the
+    classification, in one write, rather than leaving the record disagreeing with itself."""
+    script.json("GET", f"{G}/security/incidents/14", INCIDENT_14)
+    script.json("PATCH", f"{G}/security/incidents/14", {"id": "14", "status": "resolved"})
+
+    await client.update_incident(
+        "14",
+        status="resolved",
+        classification="falsePositive",
+        determination="notMalicious",
+        severity="medium",
+        resolving_comment="The signing chain is the vendor's own.",
+        description="## Triage\nNothing of the alert survived the check.",
+    )
+
+    sent = script.sent("PATCH", "/security/incidents/")
+    assert Script.body(sent[0]) == {
+        "status": "resolved",
+        "classification": "falsePositive",
+        "determination": "notMalicious",
+        "severity": "medium",
+        "resolvingComment": "The signing chain is the vendor's own.",
+        "description": "## Triage\nNothing of the alert survived the check.",
+    }
+
+
+async def test_a_resolving_comment_past_what_the_source_keeps_is_refused(
+    client: DefenderClient,
+) -> None:
+    """The API answers 200 and stores the first 30,000 characters. A caller told the write
+    succeeded would never learn the tail is gone, so the length is refused before it is sent."""
+    with pytest.raises(ValueError, match="30000"):
+        await client.update_incident("14", resolving_comment="x" * 30_001)

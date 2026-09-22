@@ -16,6 +16,15 @@ IncidentId = Annotated[
     str, Field(description="The incident ID, as shown in the Defender portal and the Graph API.")
 ]
 IncidentStatus = Literal["active", "resolved", "inProgress", "redirected", "awaitingAction"]
+IncidentSeverity = Literal["informational", "low", "medium", "high"]
+"""What an incident's severity may be set to. Graph has no `critical` for an incident: a source
+whose own scale has one maps it here, and says so where it records the mapping."""
+
+RESOLVING_COMMENT_LIMIT = 30_000
+"""What `resolvingComment` keeps. Measured against a live incident rather than read from the
+documentation, which states no limit: past this the API answers 200 and stores the first 30,000
+characters, so a caller that does not bound its own text is told the write succeeded and loses the
+tail silently. Refused here instead — a truncation nobody sees is worse than an error."""
 
 MAX_REDIRECTS = 10
 MAX_ALERTS = 2000
@@ -208,16 +217,48 @@ class Incidents(Surface):
         custom_tags: Annotated[
             list[str] | None, Field(description="Custom tags; replaces the existing tag set.")
         ] = None,
+        severity: Annotated[
+            IncidentSeverity | None, Field(description="Incident severity.")
+        ] = None,
+        resolving_comment: Annotated[
+            str | None,
+            Field(
+                description="Why the incident was resolved and classified as it was; single-valued"
+                f" and overwritten on each write, up to {RESOLVING_COMMENT_LIMIT} characters."
+            ),
+        ] = None,
+        description: Annotated[
+            str | None,
+            Field(
+                description="The incident's description, shown in the portal. Whole-value replace:"
+                " it discards whatever is there, including the text the product wrote."
+            ),
+        ] = None,
     ) -> JsonObject:
-        """Update an incident (a triage write): status, assignee, classification, determination and
-        custom tags. If the incident was merged into another, the update is applied to the master
-        incident and redirectedFrom says so."""
+        """Update an incident (a triage write): status, assignee, classification, determination,
+        custom tags, severity, the resolving comment and the description. If the incident was
+        merged into another, the update is applied to the master incident and redirectedFrom says
+        so.
+
+        `resolving_comment` and `description` are single-valued and replace what is stored, unlike
+        a comment, which is appended to a thread. `description` replaces text the product itself
+        wrote, so a caller that means to keep the original reads it first.
+        """
+        if resolving_comment is not None and len(resolving_comment) > RESOLVING_COMMENT_LIMIT:
+            raise InvalidInputError(
+                f"resolving_comment is {len(resolving_comment)} characters and the source keeps"
+                f" {RESOLVING_COMMENT_LIMIT}: it answers 200 and discards the rest without saying"
+                " so, so bound the text before writing it"
+            )
         body = {
             "status": status,
             "assignedTo": assigned_to,
             "classification": classification,
             "determination": determination,
             "customTags": custom_tags,
+            "severity": severity,
+            "resolvingComment": resolving_comment,
+            "description": description,
         }
         body = {k: v for k, v in body.items() if v is not None}
         if not body:
