@@ -22,6 +22,11 @@ from zerosoc_defender_xdr.errors import (
 
 NAME = "zerosoc-defender-xdr"
 ALLOW_ACTIONS = "DEFENDER_MCP_ALLOW_ACTIONS"
+ENTITLEMENTS = "DEFENDER_MCP_ENTITLEMENTS"
+"""Comma-separated entitlement ids this tenant has, for the sources a licensing tier gates and
+no query can settle (see TABLE_ENTITLEMENTS). Setting it states the **complete** set, so an
+entitlement left out is stated to be absent; leaving it unset states nothing, and the probe
+then reports those sources as undeclared rather than guessing either way."""
 INSTRUCTIONS = (
     "Microsoft Defender XDR for one tenant. Call defender_get_capabilities once before"
     " investigating: it says which hunting tables and APIs this tenant exposes, so an empty result"
@@ -62,6 +67,7 @@ class _NotConfigured:
 class Settings:
     credential: TokenCredential | None
     allow_actions: bool
+    entitlements: frozenset[str] | None
 
     def credential_or_placeholder(self) -> TokenCredential:
         return self.credential or _NotConfigured()
@@ -71,7 +77,19 @@ def settings_from(environment: Mapping[str, str]) -> Settings:
     return Settings(
         credential=credential_from(environment),
         allow_actions=environment.get(ALLOW_ACTIONS, "").strip().lower() == "true",
+        entitlements=_declared(environment.get(ENTITLEMENTS)),
     )
+
+
+def _declared(value: str | None) -> frozenset[str] | None:
+    """The declared entitlements, or None when the deployment declared nothing.
+
+    An empty or whitespace-only value is a declaration that the tenant has none, which is not
+    the same as saying nothing: the first answers the question, the second leaves it open.
+    """
+    if value is None:
+        return None
+    return frozenset(part.strip() for part in value.split(",") if part.strip())
 
 
 def build_server(client: DefenderClient) -> MCPServer:

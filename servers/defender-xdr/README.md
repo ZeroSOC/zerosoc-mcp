@@ -87,6 +87,20 @@ Every tool that returns a collection is bounded: a conservative default and a ha
 
 Automatic attack disruption actions (for example "1 account contained") are not returned by the incident, alert or machine-action APIs. Where the tenant's `DisruptionAndResponseEvents` hunting table holds data, query it; otherwise check the incident's Action center in the portal by hand and record what it shows. The probe reports which of the two applies under `probe.manual_checks`.
 
+### Telling an entitlement from an empty table
+
+Most hunting tables are written by ordinary traffic, so an empty answer from one means that traffic did not occur. A few are written only by a licensed feature, and for those an empty answer says nothing on its own: **the table's schema resolves at every licensing tier and the query succeeds either way**, so a tenant that lacks the feature and a tenant where the feature has not acted are indistinguishable from this API. `DisruptionAndResponseEvents` is the clearest case — it is written only when automatic attack disruption acts, which on an entitled tenant is most days not at all.
+
+Nor can the entitlement be looked up. Where the capability arrives as a Microsoft 365 licence, `subscribedSkus` names it; where the same capability arrives as Defender for Cloud's Defender for Servers plan, it is billed per Azure resource and appears in no SKU list, so reading it would mean a different API, a different credential and a different scope.
+
+So the deployment declares it:
+
+```
+DEFENDER_MCP_ENTITLEMENTS=endpoint_p2
+```
+
+Setting the variable states the **complete** set: an entitlement left out is stated to be absent. Leaving it unset states nothing, and the probe then reports such a source as `undeclared` — neither present nor absent — so a caller records a visibility gap and reads the portal, instead of concluding from an empty result that nothing happened. The three outcomes appear in `probe.checks` as `entitled_no_rows`, `unlicensed` and `undeclared`.
+
 ## Safe by default: response-action gating
 
 Response actions (device isolation and release, code-execution restriction, antivirus scans, stop-and-quarantine, investigation packages, offboarding, live response, starting automated investigations, live-response library writes, and indicator create, import and delete) are **not registered** unless the deployment explicitly sets:

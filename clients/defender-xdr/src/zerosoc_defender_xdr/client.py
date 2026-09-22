@@ -47,6 +47,7 @@ class DefenderClient(
         *,
         transport: Transport | None = None,
         allow_actions: bool = False,
+        entitlements: frozenset[str] | None = None,
     ) -> None:
         if transport is None:
             if credential is None:
@@ -54,10 +55,16 @@ class DefenderClient(
             transport = Transport(credential)
         self._api = transport
         self._allow_actions = allow_actions
+        self._entitlements = entitlements
 
     @property
     def allow_actions(self) -> bool:
         return self._allow_actions
+
+    @property
+    def entitlements(self) -> frozenset[str] | None:
+        """What the deployment declared it is entitled to; None when it declared nothing."""
+        return self._entitlements
 
     async def token_claims(self) -> dict[str, dict[str, Any] | None]:
         """Per API, the claims of the token in use (tenant, granted roles); None when unreadable."""

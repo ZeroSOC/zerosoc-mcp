@@ -21,6 +21,7 @@ from .capabilities import (
     DATA_SOURCES,
     MANUAL_CHECKS,
     RAW_TABLES,
+    TABLE_ENTITLEMENTS,
     Option,
     operation_ref,
     tool_ref,
@@ -35,6 +36,8 @@ if TYPE_CHECKING:
 Status = Literal[
     "available",
     "empty",
+    "entitled_no_rows",
+    "undeclared",
     "not_exposed",
     "unlicensed",
     "forbidden",
@@ -70,8 +73,12 @@ class Check:
 
     @property
     def ok(self) -> bool:
-        """`unknown` is a permission that could not be read from the token: not a reason to unbind."""
-        return self.status in ("available", "granted", "unknown")
+        """`unknown` is a permission that could not be read from the token: not a reason to unbind.
+
+        `entitled_no_rows` is a source the deployment has and that holds nothing today, which is an
+        answer and not a gap. `undeclared` is not ok: a tier nobody stated cannot be assumed.
+        """
+        return self.status in ("available", "granted", "unknown", "entitled_no_rows")
 
 
 @dataclass(frozen=True)
@@ -80,6 +87,9 @@ class ProbeResult:
     tenant_id: str | None
     roles: dict[str, list[str] | None]
     checks: dict[str, Check]
+    entitlements: frozenset[str] | None = None
+    """What the deployment declared it is entitled to, or None when it declared nothing. Declared
+    means the set is complete: an entitlement absent from a stated set is stated to be absent."""
 
     @property
     def complete(self) -> bool:
@@ -98,10 +108,32 @@ class ProbeResult:
             return (
                 Check("granted") if role in granted else Check("missing", f"{role} is not granted")
             )
-        return self.checks.get(check_id, Check("error", f"{check_id} was not checked"))
+        found = self.checks.get(check_id, Check("error", f"{check_id} was not checked"))
+        if kind == "hunting" and found.status == "empty":
+            return self._entitled(subject, found)
+        return found
+
+    def _entitled(self, table: str, found: Check) -> Check:
+        """An empty table that only a licensed feature writes says nothing on its own.
+
+        Its schema resolves at every tier and the query succeeds either way, so no observation
+        separates a tenant that lacks the feature from one where the feature has not acted. What
+        the deployment declared decides it, and where it declared nothing the honest answer is that
+        nobody knows — which is a visibility gap, not an absence.
+        """
+        entitlement = TABLE_ENTITLEMENTS.get(table)
+        if entitlement is None:
+            return found  # written by ordinary traffic: empty means the traffic did not occur
+        if self.entitlements is None:
+            return Check("undeclared", f"no deployment entitlement was declared for {entitlement}")
+        if entitlement in self.entitlements:
+            return Check("entitled_no_rows", f"{entitlement} is declared; the table holds no rows")
+        return Check("unlicensed", f"{entitlement} is not among the declared entitlements")
 
 
-async def run_probe(client: DefenderClient) -> ProbeResult:
+async def run_probe(
+    client: DefenderClient, *, entitlements: frozenset[str] | None = None
+) -> ProbeResult:
     limit = asyncio.Semaphore(CONCURRENCY)
 
     async def table(name: str) -> tuple[str, Check]:
@@ -133,6 +165,7 @@ async def run_probe(client: DefenderClient) -> ProbeResult:
             for name, found in claims.items()
         },
         checks=dict(checks),
+        entitlements=entitlements,
     )
 
 
@@ -196,7 +229,9 @@ def build_binding(
             "alert_evidence": alert_evidence,
             "response_actions_enabled": actions_enabled,
             "roles": result.roles,
-            "checks": {name: asdict(check) for name, check in sorted(result.checks.items())},
+            # resolved, not raw: an empty table a licence gates is published as what it
+            # means for this deployment, which is the whole point of declaring the tier
+            "checks": {name: asdict(result.check(name)) for name in sorted(result.checks)},
             "unbound": unbound,
             "manual_checks": [
                 dict(m, automated=result.check(m["automated_by"]).ok) for m in MANUAL_CHECKS
@@ -241,6 +276,10 @@ def _why(check_id: str, check: Check) -> str:
         return {
             "empty": f"{subject} is exposed but returned no rows in the last 30 days: not licensed"
             " for this tenant, or no onboarded source",
+            "undeclared": f"{subject} is written only by a licensed feature and holds no rows, and"
+            " this deployment declared no entitlement: whether the feature is absent or simply has"
+            " not acted cannot be read from the API. Declare the entitlement, or answer it from the"
+            " portal.",
             "not_exposed": f"{subject} is not exposed at this licence level",
             "forbidden": f"{subject} could not be read: the application permission"
             " ThreatHunting.Read.All is missing or not consented",

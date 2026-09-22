@@ -48,6 +48,7 @@ def tenant(
     mde_roles: list[str] = MDE_ROLES,
     allow_actions: bool = True,
     machines_status: int = 200,
+    entitlements: frozenset[str] | None = None,
 ) -> DefenderClient:
     script = Script()
 
@@ -105,19 +106,22 @@ def tenant(
     client = DefenderClient(
         transport=Transport(RoleCredential(graph_roles, mde_roles), http=http, sleep=no_sleep),
         allow_actions=allow_actions,
+        entitlements=entitlements,
     )
     client.script = script  # type: ignore[attr-defined]
     return client
 
 
 def defender_for_business(**overrides: Any) -> DefenderClient:
-    """Alert tables hold rows, device tables are exposed but empty, email and cloud tables are absent."""
+    """Alert tables hold rows, device tables are exposed but empty, email and cloud tables are absent.
+
+    `DisruptionAndResponseEvents` is exposed and empty, not absent: its schema resolves at every
+    tier and only a licensed feature ever writes it, which is the case the entitlement exists for.
+    """
     return tenant(
         tables_with_rows={"AlertInfo", "AlertEvidence"},
         tables_not_exposed={
-            t
-            for t in HUNTING_TABLES
-            if t.startswith(("Email", "UrlClick", "CloudApp", "Identity", "Disruption"))
+            t for t in HUNTING_TABLES if t.startswith(("Email", "UrlClick", "CloudApp", "Identity"))
         },
         **overrides,
     )
@@ -367,3 +371,57 @@ async def test_an_unlicensed_service_is_named_as_such_in_the_binding() -> None:
         in binding["data_source_notes"]["Identity provider sign-in logs"]
     )
     assert "not licensed" in binding["probe"]["unbound"]["telemetry.identity"]
+
+
+# --- an entitlement is declared, never read out of an empty table ---------------------------------
+
+
+async def test_an_empty_table_only_a_licence_writes_is_undeclared_rather_than_absent() -> None:
+    """Its schema resolves at every tier and the query succeeds either way, so an empty answer does
+    not say whether the tenant lacks the feature or the feature has not acted. A deployment that
+    declared nothing gets neither answer, and is told so."""
+    binding = await defender_for_business().get_capabilities()
+
+    check = binding["probe"]["checks"]["hunting:DisruptionAndResponseEvents"]
+    assert check["status"] == "undeclared"
+    assert "endpoint_p2" in check["detail"]
+
+    disruption = next(
+        m for m in binding["probe"]["manual_checks"] if m["id"] == "attack_disruption_actions"
+    )
+    assert disruption["automated"] is False, "nobody said the tenant has it"
+
+
+async def test_a_declared_entitlement_makes_an_empty_table_an_answer() -> None:
+    """A source the deployment has, holding nothing today, has answered: there was nothing. That is
+    a finding, and the check behind it stands automated."""
+    binding = await defender_for_business(
+        entitlements=frozenset({"endpoint_p2"})
+    ).get_capabilities()
+
+    check = binding["probe"]["checks"]["hunting:DisruptionAndResponseEvents"]
+    assert check["status"] == "entitled_no_rows"
+
+    disruption = next(
+        m for m in binding["probe"]["manual_checks"] if m["id"] == "attack_disruption_actions"
+    )
+    assert disruption["automated"] is True
+
+
+async def test_a_declaration_that_leaves_an_entitlement_out_states_its_absence() -> None:
+    """Declaring is declaring the whole set: an entitlement left out of a stated set is stated to be
+    absent, which is a different answer from saying nothing at all."""
+    binding = await defender_for_business(entitlements=frozenset()).get_capabilities()
+
+    check = binding["probe"]["checks"]["hunting:DisruptionAndResponseEvents"]
+    assert check["status"] == "unlicensed"
+    assert "not among the declared entitlements" in check["detail"]
+
+
+async def test_a_table_no_licence_gates_is_untouched_by_the_declaration() -> None:
+    """Most tables are written by ordinary traffic, where an empty answer means the traffic did not
+    occur. The entitlement machinery must not reach them."""
+    for declared in (None, frozenset(), frozenset({"endpoint_p2"})):
+        binding = await defender_for_business(entitlements=declared).get_capabilities()
+        assert binding["probe"]["checks"]["hunting:DeviceProcessEvents"]["status"] == "empty"
+        assert binding["data_sources"]["EDR"] is False

@@ -236,6 +236,28 @@ DATA_SOURCES: dict[str, dict[str, Any]] = _load_data_sources()
 """Framework `required_data_sources` name -> {"any_of": [checks], "note"?, "fallback"?}."""
 
 
+ENTITLEMENTS: dict[str, str] = {
+    "endpoint_p2": "Microsoft Defender for Endpoint Plan 2, however it is bought — as a Microsoft"
+    " 365 licence assigned to users, or as the Defender for Servers plan billed on an Azure"
+    " subscription. The two are indistinguishable from this API.",
+}
+"""Entitlement id -> what it is. An entitlement decides whether a source *can* answer; it is not a
+permission and not a table's current contents."""
+
+TABLE_ENTITLEMENTS: dict[str, str] = {
+    "DisruptionAndResponseEvents": "endpoint_p2",
+}
+"""Hunting table -> the entitlement that writes it, for the tables a tier gates.
+
+A table that is absent from this map is written by ordinary traffic, so an empty answer from it
+means the traffic did not occur. A table that is present is written only by a licensed feature, and
+then an empty answer is ambiguous: the tenant may lack the feature, or the feature may simply not
+have acted. **No query resolves that ambiguity** — the table's schema resolves at every tier and the
+query succeeds and returns nothing either way — so the entitlement is declared by the deployment
+rather than probed. Entries are added as a tier is established, never guessed.
+"""
+
+
 def tool_ref(tool: str) -> str:
     return f"mcp:{SERVER}/{tool}"
 

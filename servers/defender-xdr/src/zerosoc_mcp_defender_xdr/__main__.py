@@ -15,7 +15,9 @@ from .server import ALLOW_ACTIONS, build_server, settings_from, warm_up
 def main() -> None:
     settings = settings_from(os.environ)
     client = DefenderClient(
-        settings.credential_or_placeholder(), allow_actions=settings.allow_actions
+        settings.credential_or_placeholder(),
+        allow_actions=settings.allow_actions,
+        entitlements=settings.entitlements,
     )
     if settings.credential is None:
         print(f"warning: set {', '.join(CREDENTIAL_VARIABLES)} to reach a tenant", file=sys.stderr)
