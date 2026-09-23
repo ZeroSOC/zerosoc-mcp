@@ -10,6 +10,7 @@ import pytest
 from defender_fakes import Script
 from zerosoc_defender_xdr.client import OPERATIONS, DefenderClient
 from zerosoc_defender_xdr.errors import ActionsDisabledError
+from zerosoc_defender_xdr.identity import FIELDS
 from zerosoc_defender_xdr.indicators import Indicator
 from zerosoc_defender_xdr.machine_actions import CommandParam, LiveResponseCommand
 
@@ -50,6 +51,57 @@ CALLS: list[tuple[str, dict[str, Any], str, str, dict[str, Any] | None]] = [
     ),
     ("list_sign_ins", {"top": 5}, "GET", f"{G}/auditLogs/signIns", {"$top": "5"}),
     ("list_directory_audits", {}, "GET", f"{G}/auditLogs/directoryAudits", LIST),
+    (
+        "list_users",
+        {"filter": "accountEnabled eq false"},
+        "GET",
+        f"{G}/users",
+        {"$filter": "accountEnabled eq false", **LIST, "$select": FIELDS},
+    ),
+    (
+        "get_user",
+        {"user_id": "alice@contoso.com"},
+        "GET",
+        f"{G}/users/alice%40contoso.com",
+        {"$select": FIELDS},
+    ),
+    (
+        "revoke_sign_in_sessions",
+        {"user_id": "u-1"},
+        "POST",
+        f"{G}/users/u-1/revokeSignInSessions",
+        None,
+    ),
+    ("disable_account", {"user_id": "u-1"}, "PATCH", f"{G}/users/u-1", {"accountEnabled": False}),
+    ("enable_account", {"user_id": "u-1"}, "PATCH", f"{G}/users/u-1", {"accountEnabled": True}),
+    (
+        "list_inbox_rules",
+        {"user_id": "u-1"},
+        "GET",
+        f"{G}/users/u-1/mailFolders/inbox/messageRules",
+        None,
+    ),
+    (
+        "get_inbox_rule",
+        {"user_id": "u-1", "rule_id": "r-1"},
+        "GET",
+        f"{G}/users/u-1/mailFolders/inbox/messageRules/r-1",
+        None,
+    ),
+    (
+        "delete_inbox_rule",
+        {"user_id": "u-1", "rule_id": "r-1"},
+        "DELETE",
+        f"{G}/users/u-1/mailFolders/inbox/messageRules/r-1",
+        None,
+    ),
+    (
+        "create_inbox_rule",
+        {"user_id": "u-1", "rule": {"displayName": "moved", "id": "r-1", "isReadOnly": False}},
+        "POST",
+        f"{G}/users/u-1/mailFolders/inbox/messageRules",
+        {"displayName": "moved"},
+    ),
     ("list_machines", {"skip": 25}, "GET", f"{M}/machines", {**LIST, "$skip": "25"}),
     ("get_machine", {"machine_id": "m1"}, "GET", f"{M}/machines/m1", None),
     (

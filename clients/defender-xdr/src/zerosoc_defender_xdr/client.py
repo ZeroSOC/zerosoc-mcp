@@ -10,11 +10,13 @@ from .capability_probe import CapabilityProbe
 from .entities import Entities
 from .helpers import Helpers
 from .hunting import Hunting
+from .identity import Identity
 from .identity_logs import IdentityLogs
 from .incidents import Incidents
 from .indicators import Indicators
 from .machine_actions import MachineActions
 from .machines import Machines
+from .mailbox import Mailbox
 from .operations import Operation, operations_of
 from .scoring import Scoring
 from .transport import GRAPH, MDE, Transport
@@ -26,6 +28,8 @@ class DefenderClient(
     Alerts,
     Hunting,
     IdentityLogs,
+    Identity,
+    Mailbox,
     Machines,
     Entities,
     Indicators,

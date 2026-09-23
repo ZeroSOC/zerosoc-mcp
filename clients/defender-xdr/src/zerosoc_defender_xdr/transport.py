@@ -44,7 +44,9 @@ GRAPH = Api(
     "https://graph.microsoft.com/.default",
     " Hint: verify the app registration has the required Microsoft Graph application permissions"
     " (SecurityIncident.ReadWrite.All, SecurityAlert.ReadWrite.All, ThreatHunting.Read.All;"
-    " AuditLog.Read.All for the sign-in and directory audit logs) with admin consent.",
+    " AuditLog.Read.All for the sign-in and directory audit logs; User.Read.All for accounts,"
+    " with User.RevokeSessions.All and User.EnableDisableAccount.All for identity containment;"
+    " Mail.Read and Mail.ReadWrite for inbox rules) with admin consent.",
 )
 MDE = Api(
     "mde",

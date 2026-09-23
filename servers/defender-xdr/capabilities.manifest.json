@@ -232,6 +232,67 @@
         }
       }
     ],
+    "containment.suspend_sessions": [
+      {
+        "tool": "mcp:defender-xdr/entra_revoke_sign_in_sessions",
+        "operation": "defender-xdr:revoke_sign_in_sessions",
+        "kind": "action",
+        "permissions": [
+          "User.RevokeSessions.All"
+        ],
+        "requires_all": [
+          "api:graph.users"
+        ],
+        "requires_any": [
+          "role:graph/User.RevokeSessions.All",
+          "role:graph/User.ReadWrite.All"
+        ],
+        "notes": "ends every session of the account and changes nothing about it: the person signs in again, so there is no rollback to call. Access tokens already issued live until they expire, up to an hour"
+      }
+    ],
+    "containment.disable_account": [
+      {
+        "tool": "mcp:defender-xdr/entra_disable_account",
+        "operation": "defender-xdr:disable_account",
+        "kind": "action",
+        "permissions": [
+          "User.EnableDisableAccount.All"
+        ],
+        "requires_all": [
+          "api:graph.users"
+        ],
+        "requires_any": [
+          "role:graph/User.EnableDisableAccount.All",
+          "role:graph/User.ReadWrite.All"
+        ],
+        "notes": "the sessions already open are not ended by it; pair it with containment.suspend_sessions. An account mastered in on-premises Active Directory is disabled there, not here",
+        "rollback": {
+          "tool": "mcp:defender-xdr/entra_enable_account",
+          "operation": "defender-xdr:enable_account"
+        }
+      }
+    ],
+    "containment.remove_inbox_rule": [
+      {
+        "tool": "mcp:defender-xdr/mailbox_delete_inbox_rule",
+        "operation": "defender-xdr:delete_inbox_rule",
+        "kind": "action",
+        "permissions": [
+          "Mail.ReadWrite"
+        ],
+        "requires_all": [
+          "api:graph.users"
+        ],
+        "requires_any": [
+          "role:graph/Mail.ReadWrite"
+        ],
+        "notes": "removal destroys the rule, so read it with mailbox_get_inbox_rule first: what that answers is the only thing the rollback can be made from",
+        "rollback": {
+          "tool": "mcp:defender-xdr/mailbox_create_inbox_rule",
+          "operation": "defender-xdr:create_inbox_rule"
+        }
+      }
+    ],
     "containment.quarantine_file": [
       {
         "tool": "mcp:defender-xdr/defender_stop_and_quarantine_file",
@@ -615,6 +676,7 @@
       "graph.directory_audits",
       "graph.incidents",
       "graph.sign_ins",
+      "graph.users",
       "mde.machine_actions",
       "mde.machines",
       "mde.software"
@@ -1272,6 +1334,87 @@
       "api": "mde",
       "permissions": [
         "Machine.Offboard"
+      ]
+    },
+    {
+      "tool": "mailbox_list_inbox_rules",
+      "operation": "defender-xdr:list_inbox_rules",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "Mail.Read"
+      ]
+    },
+    {
+      "tool": "mailbox_get_inbox_rule",
+      "operation": "defender-xdr:get_inbox_rule",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "Mail.Read"
+      ]
+    },
+    {
+      "tool": "mailbox_delete_inbox_rule",
+      "operation": "defender-xdr:delete_inbox_rule",
+      "kind": "action",
+      "api": "graph",
+      "permissions": [
+        "Mail.ReadWrite"
+      ]
+    },
+    {
+      "tool": "mailbox_create_inbox_rule",
+      "operation": "defender-xdr:create_inbox_rule",
+      "kind": "action",
+      "api": "graph",
+      "permissions": [
+        "Mail.ReadWrite"
+      ]
+    },
+    {
+      "tool": "entra_list_users",
+      "operation": "defender-xdr:list_users",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "User.Read.All"
+      ]
+    },
+    {
+      "tool": "entra_get_user",
+      "operation": "defender-xdr:get_user",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "User.Read.All"
+      ]
+    },
+    {
+      "tool": "entra_revoke_sign_in_sessions",
+      "operation": "defender-xdr:revoke_sign_in_sessions",
+      "kind": "action",
+      "api": "graph",
+      "permissions": [
+        "User.RevokeSessions.All"
+      ]
+    },
+    {
+      "tool": "entra_disable_account",
+      "operation": "defender-xdr:disable_account",
+      "kind": "action",
+      "api": "graph",
+      "permissions": [
+        "User.EnableDisableAccount.All"
+      ]
+    },
+    {
+      "tool": "entra_enable_account",
+      "operation": "defender-xdr:enable_account",
+      "kind": "action",
+      "api": "graph",
+      "permissions": [
+        "User.EnableDisableAccount.All"
       ]
     },
     {

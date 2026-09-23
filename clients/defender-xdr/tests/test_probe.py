@@ -27,6 +27,10 @@ GRAPH_ROLES = [
     "SecurityAlert.ReadWrite.All",
     "ThreatHunting.Read.All",
     "AuditLog.Read.All",
+    "User.Read.All",
+    "User.RevokeSessions.All",
+    "User.EnableDisableAccount.All",
+    "Mail.ReadWrite",
 ]
 MDE_ROLES = [
     "Machine.Read.All",
@@ -48,6 +52,7 @@ def tenant(
     mde_roles: list[str] = MDE_ROLES,
     allow_actions: bool = True,
     machines_status: int = 200,
+    users_status: int = 200,
     entitlements: frozenset[str] | None = None,
 ) -> DefenderClient:
     script = Script()
@@ -88,6 +93,12 @@ def tenant(
         sign_ins_status,
     )
     script.json("GET", f"{G}/auditLogs/directoryAudits", {"value": []})
+    script.json(
+        "GET",
+        f"{G}/users",
+        {"value": [{"id": "u-1"}]} if users_status == 200 else {"error": {"message": "no"}},
+        users_status,
+    )
     script.on(
         "GET",
         f"{M}/machines",
@@ -226,6 +237,46 @@ async def test_containment_is_bound_only_with_the_permission_to_act() -> None:
     assert binding["probe"]["roles"]["mde"] == sorted(
         r for r in MDE_ROLES if r != "Ti.ReadWrite.All"
     )
+
+
+async def test_identity_and_mailbox_containment_bind_where_the_directory_answers() -> None:
+    binding = await defender_for_business().get_capabilities()
+
+    sessions = binding["capabilities"]["containment.suspend_sessions"]
+    assert sessions["tool"] == "mcp:defender-xdr/entra_revoke_sign_in_sessions"
+    assert "no rollback to call" in sessions["notes"]
+    account = binding["capabilities"]["containment.disable_account"]
+    assert account["tool"] == "mcp:defender-xdr/entra_disable_account"
+    assert "reversed by entra_enable_account" in account["notes"]
+    rule = binding["capabilities"]["containment.remove_inbox_rule"]
+    assert rule["tool"] == "mcp:defender-xdr/mailbox_delete_inbox_rule"
+    assert "reversed by mailbox_create_inbox_rule" in rule["notes"]
+
+
+async def test_identity_containment_is_unbound_without_the_permission_to_act() -> None:
+    """A tenant that grants the directory read and no write reads accounts and contains none."""
+    binding = await defender_for_business(
+        graph_roles=[
+            r for r in GRAPH_ROLES if r not in ("User.RevokeSessions.All", "Mail.ReadWrite")
+        ]
+    ).get_capabilities()
+
+    assert "containment.disable_account" in binding["capabilities"]  # its own role is still granted
+    assert "containment.suspend_sessions" not in binding["capabilities"]
+    assert "User.RevokeSessions.All" in binding["probe"]["unbound"]["containment.suspend_sessions"]
+    assert "Mail.ReadWrite" in binding["probe"]["unbound"]["containment.remove_inbox_rule"]
+
+
+async def test_a_directory_that_does_not_answer_contains_no_account() -> None:
+    binding = await defender_for_business(users_status=403).get_capabilities()
+
+    for klass in (
+        "containment.suspend_sessions",
+        "containment.disable_account",
+        "containment.remove_inbox_rule",
+    ):
+        assert klass not in binding["capabilities"]
+        assert "graph.users refused the call" in binding["probe"]["unbound"][klass]
 
 
 async def test_the_probe_runs_once_until_a_refresh_is_asked() -> None:

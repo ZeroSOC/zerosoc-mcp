@@ -182,6 +182,52 @@ CLASS_BINDINGS: tuple[ClassBinding, ...] = (
         ),
     ),
     ClassBinding(
+        "containment.suspend_sessions",
+        (
+            Option(
+                "revoke_sign_in_sessions",
+                requires_all=("api:graph.users",),
+                requires_any=(
+                    "role:graph/User.RevokeSessions.All",
+                    "role:graph/User.ReadWrite.All",
+                ),
+                notes="ends every session of the account and changes nothing about it: the person"
+                " signs in again, so there is no rollback to call. Access tokens already issued"
+                " live until they expire, up to an hour",
+            ),
+        ),
+    ),
+    ClassBinding(
+        "containment.disable_account",
+        (
+            Option(
+                "disable_account",
+                requires_all=("api:graph.users",),
+                requires_any=(
+                    "role:graph/User.EnableDisableAccount.All",
+                    "role:graph/User.ReadWrite.All",
+                ),
+                notes="the sessions already open are not ended by it; pair it with"
+                " containment.suspend_sessions. An account mastered in on-premises Active Directory"
+                " is disabled there, not here",
+                rollback="enable_account",
+            ),
+        ),
+    ),
+    ClassBinding(
+        "containment.remove_inbox_rule",
+        (
+            Option(
+                "delete_inbox_rule",
+                requires_all=("api:graph.users",),
+                requires_any=("role:graph/Mail.ReadWrite",),
+                notes="removal destroys the rule, so read it with mailbox_get_inbox_rule first:"
+                " what that answers is the only thing the rollback can be made from",
+                rollback="create_inbox_rule",
+            ),
+        ),
+    ),
+    ClassBinding(
         "containment.quarantine_file",
         (
             Option(
