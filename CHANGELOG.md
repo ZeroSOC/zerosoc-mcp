@@ -3,6 +3,22 @@
 ## Unreleased
 
 **Added**
+- Identity and mailbox containment, the three response actions an incident that reaches an account
+  needs and the reads that decide them: `entra_revoke_sign_in_sessions`, `entra_disable_account`
+  with `entra_enable_account` as its rollback, and `mailbox_delete_inbox_rule` with
+  `mailbox_create_inbox_rule` as its rollback, beside `entra_list_users`, `entra_get_user`,
+  `mailbox_list_inbox_rules` and `mailbox_get_inbox_rule`. Each action is reversible or recoverable
+  — the sessions come back by signing in, the account by being enabled, the rule by being put back
+  from what was read — which is what lets one run under an approval rather than a change window.
+  Removal destroys an inbox rule and the service keeps no copy, so the surface reads a rule before
+  anything deletes one and restores exactly what it read, minus the fields the service owns.
+  All five actions are behind `DEFENDER_MCP_ALLOW_ACTIONS`, the rollbacks included.
+- The capability classes `containment.suspend_sessions`, `containment.disable_account` and
+  `containment.remove_inbox_rule`, each bound only where the directory answers *and* the tenant
+  granted a permission that acts: `User.RevokeSessions.All` or `User.ReadWrite.All`,
+  `User.EnableDisableAccount.All` or `User.ReadWrite.All`, `Mail.ReadWrite`. The probe asks the
+  directory one bounded question (`api:graph.users`), so a tenant whose app registration reads
+  security data and nothing else binds none of them and says which permission is missing.
 - `update_incident` writes `severity`, `resolvingComment` and `description` alongside the status,
   classification and determination it already wrote. All three are documented as writable and none
   carried a documented limit; these were measured against a live incident — a ladder of lengths,

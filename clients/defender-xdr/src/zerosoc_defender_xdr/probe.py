@@ -53,6 +53,7 @@ API_CHECKS: dict[str, str] = {
     "graph.incidents": "list_incidents",
     "graph.alerts": "list_alerts",
     "graph.sign_ins": "list_sign_ins",
+    "graph.users": "list_users",
     "graph.directory_audits": "list_directory_audits",
     "mde.machines": "list_machines",
     "mde.software": "list_software",

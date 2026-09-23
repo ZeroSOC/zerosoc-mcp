@@ -56,6 +56,7 @@ The server is **Graph-first**: XDR-level operations use the [Microsoft Graph sec
 |---|---|---|
 | Microsoft Graph security API | `graph.microsoft.com/v1.0/security` | Incidents, alerts (alerts_v2, all workloads), advanced hunting (`runHuntingQuery`) |
 | Microsoft Graph reporting API | `graph.microsoft.com/v1.0/auditLogs` | Entra ID sign-in log and directory audit log |
+| Microsoft Graph directory and mail APIs | `graph.microsoft.com/v1.0/users` | Entra ID accounts and the containment that acts on them; inbox rules |
 | Defender for Endpoint API | `api.securitycenter.microsoft.com/api` | Devices, response actions, live response, indicators, vulnerability management, scores, entity enrichment |
 
 ## Tools
@@ -66,6 +67,8 @@ The server is **Graph-first**: XDR-level operations use the [Microsoft Graph sec
 | Alerts | 2 | 2 | | alerts_v2: Endpoint, Office 365, Identity, Cloud Apps, Entra ID Protection |
 | Advanced hunting | 1 | | | cross-workload KQL |
 | Entra ID logs | 2 | | | sign-ins, directory audits |
+| Entra ID accounts | 2 | | 3 | list and read accounts; revoke sessions, disable and enable |
+| Mailbox rules | 2 | | 2 | list and read inbox rules; remove one, and put a captured one back |
 | Devices | 6 | 2 | 8 | isolate, release, scan, restrict, quarantine, package, offboard |
 | Machine actions | 7 | | 5 | action history, live response, investigations, library |
 | Indicators | 1 | | 4 | allow, audit, warn and block lists |
@@ -82,6 +85,16 @@ Every tool that returns a collection is bounded: a conservative default and a ha
 - **`defender_get_capabilities`** answers from a probe the server runs as it starts (and again on `refresh`): which hunting tables hold data (`available`), which are exposed but `empty`, which the licence does `not_exposed`, which APIs answer, which refuse because the service is `unlicensed` or inactive in the tenant, which refuse because a permission is missing (`forbidden`), and which application permissions are granted. An empty query result can then be read for what it is: a visibility gap, a missing licence or a missing permission. The result is a ZeroSOC capability binding (see below).
 - **`defender_get_incident_evidence`** returns the evidence of an incident the way the portal shows it: it pages through every alert, flattens the evidence into one row per evidence item, joins each row to its device, decodes encoded commands, gives every time in UTC, and returns `entityCount` to reconcile with the portal's evidence list (checked on a test incident: same count on every type). Where the source lists one process twice because two alerts describe it differently, the rows are linked (`instance`, `sameProcess`) and not merged, so no verdict is lost. An incident too large to read whole says so (`alertsTruncated`).
 - **Writes follow merges.** A comment or an update sent to an incident that was merged into another lands on the master incident, and the result says so in `redirectedFrom`.
+
+### Containing an identity, and a mailbox rule
+
+An incident that reaches an identity is contained in the directory, not on the endpoint, and the three actions that do it are here:
+
+- **`entra_revoke_sign_in_sessions`** ends every session of an account and changes nothing about the account, so there is nothing to undo: whoever knows the credential and passes multifactor signs in again. Access tokens already issued live until they expire, up to an hour.
+- **`entra_disable_account`** stops the account signing in anywhere; **`entra_enable_account`** is its rollback and the only thing it takes back. Sessions already open are not ended by it, so the two are usually taken together. An account mastered in on-premises Active Directory is disabled there, not here.
+- **`mailbox_delete_inbox_rule`** removes the rule that keeps a mailbox takeover quiet. **Removal destroys the rule** — the service keeps no copy — so read it first with `mailbox_get_inbox_rule` and keep the answer: `mailbox_create_inbox_rule` takes it back unchanged, minus the fields the service owns, and the rule that comes back is a new rule with the old behaviour.
+
+Nothing here resets a password, adds or removes an authentication method, edits any other property of an account, or reads a message: those are identity and mailbox administration, and an integration that could do them would be a standing invitation to.
 
 ### Known gap: attack disruption
 
@@ -103,7 +116,7 @@ Setting the variable states the **complete** set: an entitlement left out is sta
 
 ## Safe by default: response-action gating
 
-Response actions (device isolation and release, code-execution restriction, antivirus scans, stop-and-quarantine, investigation packages, offboarding, live response, starting automated investigations, live-response library writes, and indicator create, import and delete) are **not registered** unless the deployment explicitly sets:
+Response actions (device isolation and release, code-execution restriction, antivirus scans, stop-and-quarantine, investigation packages, offboarding, live response, starting automated investigations, live-response library writes, indicator create, import and delete, sign-in session revocation, account disable and enable, and inbox-rule removal and restore) are **not registered** unless the deployment explicitly sets:
 
 ```
 DEFENDER_MCP_ALLOW_ACTIONS=true
@@ -133,6 +146,9 @@ A **Microsoft Entra ID app registration** with **Application** permissions (admi
 - `SecurityAlert.ReadWrite.All` (or `.Read.All`)
 - `ThreatHunting.Read.All`
 - `AuditLog.Read.All` and `Directory.Read.All` for the Entra ID logs (the sign-in log needs an Entra ID P1 or P2 licence in the tenant)
+- `User.Read.All` to read accounts (`Directory.Read.All` grants it too)
+- `User.RevokeSessions.All` and `User.EnableDisableAccount.All` for identity containment, only if response actions are enabled. `User.ReadWrite.All` grants both and much else besides; the two above are the least privilege that does
+- `Mail.Read` to read inbox rules, `Mail.ReadWrite` to remove one or put one back (only if response actions are enabled). Both are mailbox-wide, so scope them with an [application access policy](https://learn.microsoft.com/graph/auth-limit-mailbox-access) where the tenant allows it
 
 **WindowsDefenderATP:**
 - `Machine.Read.All`, `Machine.ReadWrite.All`
