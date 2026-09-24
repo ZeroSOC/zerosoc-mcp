@@ -65,7 +65,7 @@ The server is **Graph-first**: XDR-level operations use the [Microsoft Graph sec
 |---|---|---|---|---|
 | Incidents | 5 | 2 | | list, get, resolve merges, alerts, **evidence inventory**, update, comment |
 | Alerts | 2 | 2 | | alerts_v2: Endpoint, Office 365, Identity, Cloud Apps, Entra ID Protection |
-| Advanced hunting | 1 | | | cross-workload KQL |
+| Advanced hunting | 2 | | | cross-workload KQL; what attack disruption did, without writing the query |
 | Entra ID logs | 2 | | | sign-ins, directory audits |
 | Entra ID accounts | 2 | | 3 | list and read accounts; revoke sessions, disable and enable |
 | Mailbox rules | 2 | | 2 | list and read inbox rules; remove one, and put a captured one back |
@@ -98,7 +98,9 @@ Nothing here resets a password, adds or removes an authentication method, edits 
 
 ### Known gap: attack disruption
 
-Automatic attack disruption actions (for example "1 account contained") are not returned by the incident, alert or machine-action APIs. Where the tenant's `DisruptionAndResponseEvents` hunting table holds data, query it; otherwise check the incident's Action center in the portal by hand and record what it shows. The probe reports which of the two applies under `probe.manual_checks`.
+Automatic attack disruption actions (a contained user or device, a disabled account) are returned by no API. The machine-action types are the manual ones (isolate, scan, quarantine, and so on), alert evidence carries the state of the automated investigation, the incident carries a tag and a title suffix, and the `DisruptionAndResponseEvents` hunting table records only the **outcomes** of a containment (blocked logons, blocked file and RPC access, disconnected sessions, policy applications), never the containment itself, and only for Defender for Endpoint controls. The portal's Action center is the record of the action.
+
+So the integration does two things. **`defender_get_disruption_events`** reads the table for a time window, for one device or one account, newest first and bounded, so nobody writes the query by hand; an empty answer says that it is not evidence that nothing was contained, and what the deployment declared about the entitlement. And the probe reports the check under `probe.manual_checks`, with `automated` (the table can be read and the deployment has the feature that writes it) and **`required`**: the Action center must be read by hand whenever the table holds no rows and the feature was not stated absent, because then nothing readable says whether it acted. A consumer that skips a required manual check reports a containment state it has not seen.
 
 ### Telling an entitlement from an empty table
 
@@ -135,7 +137,9 @@ export DEFENDER_TENANT_ID=... DEFENDER_CLIENT_ID=... DEFENDER_CLIENT_SECRET=...
 uvx --from ./clients/defender-xdr zerosoc-defender-xdr probe --out zerosoc.capabilities.json
 ```
 
-The probe only reads: one row from each hunting table and one item from each API. On a Defender for Business tenant the binding marks the hunting-backed sources unavailable, each with the reason, keeps the alert-backed sources available, and binds `telemetry.endpoint` to the evidence inventory with the note "alert evidence only". Bind the classes this technology does not satisfy (a knowledge base, a reputation service) before using the file.
+The probe only reads: one row from each hunting table and one item from each API. On a Defender for Business tenant the binding marks the hunting-backed sources unavailable, each with the reason, keeps the alert-backed sources available, and binds `telemetry.endpoint` to the evidence inventory with the note "alert evidence only". A source this technology covers only in part is available with a note that says which part: reputation enrichment is file reputation by hash (`defender_get_file_info`), and the note says that address and domain reputation are not it. Bind the classes this technology does not satisfy (a knowledge base, a multi-engine reputation service) before using the file.
+
+The binding names the source profile of this technology under `source_profiles`, as `zerosoc-defender-xdr/source_profile.json`: the ZeroSOC skills' loader looks for it beside the binding first, where a deployment's own copy wins, and then beside the installed skills. The alert-type rules live in that profile, so nothing is copied next to the binding by hand.
 
 ## Prerequisites
 

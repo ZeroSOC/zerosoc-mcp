@@ -5,7 +5,9 @@
     "client": "zerosoc-defender-xdr",
     "mcp_server": "zerosoc-mcp-defender-xdr"
   },
-  "alert_type_map": "alert_types.defender-xdr.json",
+  "source_profiles": {
+    "defender-xdr": "zerosoc-defender-xdr/source_profile.json"
+  },
   "capabilities": {
     "asset.cmdb": [
       {
@@ -640,7 +642,11 @@
       "any_of": []
     },
     "Threat-intel / reputation enrichment (hash, IP, domain)": {
-      "any_of": []
+      "all_of": [
+        "api:mde.machines",
+        "role:mde/File.Read.All"
+      ],
+      "note": "file reputation by hash only (defender_get_file_info: prevalence, first seen, signer and determination; defender_get_file_statistics for the organization). Address and domain reputation are not covered: defender_get_ip_statistics and defender_get_domain_statistics give this tenant's prevalence, not a verdict, so bind reputation.multi_engine for those"
     },
     "Training-data lineage": {
       "any_of": []
@@ -710,8 +716,10 @@
   "manual_checks": [
     {
       "id": "attack_disruption_actions",
-      "description": "Automatic attack disruption (for example a contained user) is not returned by the incident, alert or machine-action APIs. Where the DisruptionAndResponseEvents hunting table holds data, query it; otherwise check the incident's Action center in the portal by hand and record what it shows. Never report containment state without it.",
-      "automated_by": "hunting:DisruptionAndResponseEvents"
+      "description": "Automatic attack disruption actions (a contained user or device, a disabled account) are returned by no API: the machine-action types are the manual ones, alert evidence carries the state of the automated investigation, and the DisruptionAndResponseEvents hunting table records only the outcomes of a containment (blocked logons, blocked file and RPC access, disconnected sessions, policy applications), never the containment itself. Where the table holds rows, read them with the tool named here; where it holds none, the incident's Action center in the portal is the record of the action: read it by hand and record what it shows. Never report containment state without one of the two.",
+      "automated_by": "hunting:DisruptionAndResponseEvents",
+      "tool": "mcp:defender-xdr/defender_get_disruption_events",
+      "operation": "defender-xdr:list_disruption_events"
     }
   ],
   "tools": [
@@ -1440,6 +1448,15 @@
     {
       "tool": "defender_run_hunting_query",
       "operation": "defender-xdr:run_hunting_query",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "ThreatHunting.Read.All"
+      ]
+    },
+    {
+      "tool": "defender_get_disruption_events",
+      "operation": "defender-xdr:list_disruption_events",
       "kind": "read",
       "api": "graph",
       "permissions": [

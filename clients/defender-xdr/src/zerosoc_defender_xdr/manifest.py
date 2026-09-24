@@ -5,11 +5,11 @@ from __future__ import annotations
 from typing import Any
 
 from .capabilities import (
-    ALERT_TYPE_MAP,
     CLASS_BINDINGS,
     DATA_SOURCES,
     MANUAL_CHECKS,
     SERVER,
+    SOURCE_PROFILES,
     operation_ref,
     tool_ref,
     version,
@@ -46,11 +46,18 @@ def manifest() -> dict[str, Any]:
         "server": SERVER,
         "version": version(),
         "packages": {"client": "zerosoc-defender-xdr", "mcp_server": "zerosoc-mcp-defender-xdr"},
-        "alert_type_map": ALERT_TYPE_MAP,
+        "source_profiles": dict(SOURCE_PROFILES),
         "capabilities": capabilities,
         "data_sources": DATA_SOURCES,
         "checks": {"api": sorted(API_CHECKS), "hunting": list(HUNTING_TABLES)},
-        "manual_checks": list(MANUAL_CHECKS),
+        "manual_checks": [
+            {
+                **{k: v for k, v in m.items() if k != "operation"},
+                "tool": tool_ref(by_name[m["operation"]].tool),
+                "operation": operation_ref(m["operation"]),
+            }
+            for m in MANUAL_CHECKS
+        ],
         "tools": [
             {
                 "tool": o.tool,

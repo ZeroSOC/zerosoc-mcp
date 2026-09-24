@@ -14,7 +14,15 @@ from importlib import metadata, resources
 from typing import Any
 
 SERVER = "defender-xdr"
-ALERT_TYPE_MAP = "alert_types.defender-xdr.json"
+SOURCE_PROFILES: dict[str, str] = {SERVER: "zerosoc-defender-xdr/source_profile.json"}
+"""Source identifier -> the source profile of this technology, as the binding names it.
+
+The profile lives with the tool skill of its technology, so the binding names it from there and
+the skills' loader looks for it beside the binding file first (a deployment's own copy wins) and
+then beside the installed skills. The probe emits nothing else for it: the name resolves wherever
+the tool skill is installed, so a freshly probed deployment reads its alert-type rules with no file
+copied by hand.
+"""
 RAW_TABLES = ("DeviceProcessEvents", "IdentityLogonEvents", "EmailEvents", "CloudAppEvents")
 
 
@@ -263,13 +271,21 @@ CLASS_BINDINGS: tuple[ClassBinding, ...] = (
 MANUAL_CHECKS: tuple[dict[str, str], ...] = (
     {
         "id": "attack_disruption_actions",
-        "description": "Automatic attack disruption (for example a contained user) is not returned"
-        " by the incident, alert or machine-action APIs. Where the DisruptionAndResponseEvents"
-        " hunting table holds data, query it; otherwise check the incident's Action center in the"
-        " portal by hand and record what it shows. Never report containment state without it.",
+        "description": "Automatic attack disruption actions (a contained user or device, a disabled"
+        " account) are returned by no API: the machine-action types are the manual ones, alert"
+        " evidence carries the state of the automated investigation, and the"
+        " DisruptionAndResponseEvents hunting table records only the outcomes of a containment"
+        " (blocked logons, blocked file and RPC access, disconnected sessions, policy"
+        " applications), never the containment itself. Where the table holds rows, read them with"
+        " the tool named here; where it holds none, the incident's Action center in the portal is"
+        " the record of the action: read it by hand and record what it shows. Never report"
+        " containment state without one of the two.",
         "automated_by": "hunting:DisruptionAndResponseEvents",
+        "operation": "list_disruption_events",
     },
 )
+"""A check no API automates fully. `automated_by` is the probe check that, when it holds rows,
+lets `operation` answer instead of the portal; the binding says per tenant whether that is so."""
 
 
 def _load_data_sources() -> dict[str, dict[str, Any]]:

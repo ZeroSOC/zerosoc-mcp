@@ -3,6 +3,23 @@
 ## Unreleased
 
 **Added**
+- `defender_get_disruption_events` reads the `DisruptionAndResponseEvents` hunting table for a time
+  window, for one device or one account, newest first and bounded, so what automatic attack
+  disruption did is read without anyone writing the query. The table records the outcomes of a
+  containment (blocked logons, blocked file and RPC access, disconnected sessions, policy
+  applications) and never the containment itself, so an empty answer says that it is not evidence
+  that nothing was contained, names the portal's Action center as the record of the action, and
+  carries what the deployment declared about the entitlement that writes the table. No API returns
+  the disruption actions themselves: the machine-action types are the manual ones, alert evidence
+  carries the automated investigation's state, and the incident carries a tag. The check was made
+  against the vendor's current reference pages before this was written.
+- Each entry of `probe.manual_checks` carries the tool that automates it, the status of the check
+  behind it, and `required`: whether the portal must be read by hand regardless. For attack
+  disruption that is whenever the table holds no rows and the deployment did not state the feature
+  absent, because then nothing readable says whether it acted. The check was previously reported as
+  `automated` on a declared entitlement with an empty table, which read as "nothing to do".
+- A data source may name the checks it needs all of (`all_of`) beside the ones any of which
+  suffice (`any_of`).
 - Identity and mailbox containment, the three response actions an incident that reaches an account
   needs and the reads that decide them: `entra_revoke_sign_in_sessions`, `entra_disable_account`
   with `entra_enable_account` as its rollback, and `mailbox_delete_inbox_rule` with
@@ -27,7 +44,20 @@
   severity it decided, why it classified as it did, and an account a reader sees without leaving
   the incident page.
 
+**Changed**
+- The binding names the source profile of this technology under `source_profiles`
+  (`zerosoc-defender-xdr/source_profile.json`) and no longer carries `alert_type_map`. The skills
+  moved the alert-type rules into the source profile and retired the field, and the name the
+  binding now carries is one the skills' loader resolves beside the binding or beside the installed
+  skills, so a freshly probed deployment reads its alert-type rules with nothing copied by hand.
+  The `alert_type_map` field named a file the probe never emitted.
+
 **Fixed**
+- "Threat-intel / reputation enrichment (hash, IP, domain)" was reported unavailable although
+  `malware.repository` was bound to `defender_get_file_info`, which answers for a hash. It is now
+  available where the endpoint API answers and `File.Read.All` is granted, with a note that it is
+  file reputation by hash only and that address and domain reputation are not covered, so a
+  consumer neither reports a gap the deployment does not have nor expects a verdict on an address.
 - `resolvingComment` past 30,000 characters is refused rather than sent. The API answers 200 and
   keeps the first 30,000, so a caller was told the write succeeded and lost the tail without
   anything saying so. `description` has no bound worth stating — a megabyte is accepted and read
