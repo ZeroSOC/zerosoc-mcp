@@ -1,5 +1,5 @@
 {
- "_comment": "Framework required_data_sources name -> the probe checks that make it available through this integration (any of). An empty list: this technology never provides it. Names follow the framework playbooks' frontmatter.",
+ "_comment": "Framework required_data_sources name -> the probe checks that make it available through this integration: any of `any_of`, or all of `all_of`. An empty list: this technology never provides it. `note` is printed with the source whether or not it is available, so it can say what a source covers only in part. Names follow the framework playbooks' frontmatter.",
  "data_sources": {
   "AD/GPO & deployment-infrastructure logs": {
    "any_of": []
@@ -294,7 +294,11 @@
    "any_of": []
   },
   "Threat-intel / reputation enrichment (hash, IP, domain)": {
-   "any_of": []
+   "all_of": [
+    "api:mde.machines",
+    "role:mde/File.Read.All"
+   ],
+   "note": "file reputation by hash only (defender_get_file_info: prevalence, first seen, signer and determination; defender_get_file_statistics for the organization). Address and domain reputation are not covered: defender_get_ip_statistics and defender_get_domain_statistics give this tenant's prevalence, not a verdict, so bind reputation.multi_engine for those"
   },
   "Training-data lineage": {
    "any_of": []

@@ -123,6 +123,11 @@ def tenant(
     return client
 
 
+def full_telemetry(**overrides: Any) -> DefenderClient:
+    """Every hunting table holds rows: a tenant with the endpoint plan that writes them all."""
+    return tenant(tables_with_rows=set(HUNTING_TABLES), **overrides)
+
+
 def defender_for_business(**overrides: Any) -> DefenderClient:
     """Alert tables hold rows, device tables are exposed but empty, email and cloud tables are absent.
 
@@ -173,8 +178,60 @@ async def test_the_binding_is_a_valid_binding_file_that_answers_every_data_sourc
     jsonschema.validate(binding, SCHEMA)
     assert set(binding["data_sources"]) == set(DATA_SOURCES) and len(DATA_SOURCES) == 85
     assert all(isinstance(v, bool) for v in binding["data_sources"].values())
-    assert binding["alert_type_map"] == "alert_types.defender-xdr.json"
+    assert "alert_type_map" not in binding, "a field nothing reads any more"
     assert "Defender XDR" in binding["deployment"]
+
+
+@pytest.mark.parametrize("shape", ["alert evidence only", "full endpoint telemetry"])
+async def test_the_binding_names_the_source_profile_where_the_installed_skills_hold_it(
+    shape: str,
+) -> None:
+    """The alert-type rules live in the source profile of the tool skill, and the binding names it
+    by the path the skills' loader resolves: beside the binding first, then beside the installed
+    skills. So a freshly probed deployment reads them with no file copied by hand."""
+    client = defender_for_business() if shape.startswith("alert") else full_telemetry()
+    binding = await client.get_capabilities()
+
+    assert binding["source_profiles"] == {
+        "defender-xdr": "zerosoc-defender-xdr/source_profile.json"
+    }
+    assert manifest()["source_profiles"] == binding["source_profiles"]
+    jsonschema.validate(binding, SCHEMA)
+
+
+@pytest.mark.parametrize("shape", ["alert evidence only", "full endpoint telemetry"])
+async def test_reputation_is_available_for_files_by_hash_and_says_what_it_does_not_cover(
+    shape: str,
+) -> None:
+    """Both tenant shapes reach the endpoint API and hold File.Read.All, so defender_get_file_info
+    answers for a hash on either. The schema cannot say "partly", so the source is available with a
+    note naming the part that is not: address and domain reputation."""
+    client = defender_for_business() if shape.startswith("alert") else full_telemetry()
+    binding = await client.get_capabilities()
+
+    source = "Threat-intel / reputation enrichment (hash, IP, domain)"
+    assert binding["data_sources"][source] is True
+    note = binding["data_source_notes"][source]
+    assert "file reputation by hash only" in note and "defender_get_file_info" in note
+    assert "Address and domain reputation are not covered" in note
+    assert binding["capabilities"]["malware.repository"]["tool"] == (
+        "mcp:defender-xdr/defender_get_file_info"
+    )
+
+
+async def test_reputation_needs_both_the_endpoint_api_and_the_file_permission() -> None:
+    source = "Threat-intel / reputation enrichment (hash, IP, domain)"
+
+    without_role = await defender_for_business(
+        mde_roles=[r for r in MDE_ROLES if r != "File.Read.All"]
+    ).get_capabilities()
+    assert without_role["data_sources"][source] is False
+    assert "File.Read.All is not granted" in without_role["data_source_notes"][source]
+    assert "file reputation by hash only" in without_role["data_source_notes"][source]
+
+    without_api = await defender_for_business(machines_status=403).get_capabilities()
+    assert without_api["data_sources"][source] is False
+    assert "mde.machines refused the call" in without_api["data_source_notes"][source]
 
 
 async def test_the_sign_in_log_is_a_source_once_a_tool_reads_it() -> None:
@@ -194,7 +251,7 @@ async def test_a_tenant_without_a_premium_directory_licence_has_no_sign_in_log()
 
 
 async def test_a_tenant_with_full_hunting_binds_telemetry_to_the_query_tool() -> None:
-    binding = await tenant(tables_with_rows=set(HUNTING_TABLES)).get_capabilities()
+    binding = await full_telemetry().get_capabilities()
 
     assert binding["data_sources"]["EDR"] is True and "EDR" not in binding["data_source_notes"]
     assert binding["data_sources"]["Email gateway logs"] is True
@@ -325,7 +382,10 @@ def test_the_manifest_lists_the_classes_the_server_satisfies_with_tool_and_opera
             assert option["kind"] == operation.kind
     assert {b.klass for b in CLASS_BINDINGS} == set(document["capabilities"])
     assert len(document["tools"]) == len(OPERATIONS)
-    assert document["manual_checks"][0]["id"] == "attack_disruption_actions"
+    disruption = document["manual_checks"][0]
+    assert disruption["id"] == "attack_disruption_actions"
+    assert disruption["tool"] == "mcp:defender-xdr/defender_get_disruption_events"
+    assert disruption["operation"] == "defender-xdr:list_disruption_events"
 
 
 @pytest.mark.parametrize("binding", CLASS_BINDINGS, ids=lambda b: b.klass)
@@ -437,15 +497,18 @@ async def test_an_empty_table_only_a_licence_writes_is_undeclared_rather_than_ab
     assert check["status"] == "undeclared"
     assert "endpoint_p2" in check["detail"]
 
-    disruption = next(
-        m for m in binding["probe"]["manual_checks"] if m["id"] == "attack_disruption_actions"
-    )
+    disruption = _disruption(binding)
     assert disruption["automated"] is False, "nobody said the tenant has it"
+    assert disruption["required"] is True, "so the portal is the only record"
+    assert disruption["status"] == "undeclared"
+    assert disruption["tool"] == "mcp:defender-xdr/defender_get_disruption_events"
 
 
 async def test_a_declared_entitlement_makes_an_empty_table_an_answer() -> None:
     """A source the deployment has, holding nothing today, has answered: there was nothing. That is
-    a finding, and the check behind it stands automated."""
+    a finding, and the check behind it stands automated. It does not stand alone: the table records
+    the outcomes of a containment and not the containment, so with no rows the portal's Action
+    center is still the only record of whether the feature acted, and the check is required."""
     binding = await defender_for_business(
         entitlements=frozenset({"endpoint_p2"})
     ).get_capabilities()
@@ -453,10 +516,48 @@ async def test_a_declared_entitlement_makes_an_empty_table_an_answer() -> None:
     check = binding["probe"]["checks"]["hunting:DisruptionAndResponseEvents"]
     assert check["status"] == "entitled_no_rows"
 
-    disruption = next(
+    disruption = _disruption(binding)
+    assert disruption["automated"] is True
+    assert disruption["required"] is True
+
+
+def _disruption(binding: dict[str, Any]) -> dict[str, Any]:
+    found: dict[str, Any] = next(
         m for m in binding["probe"]["manual_checks"] if m["id"] == "attack_disruption_actions"
     )
-    assert disruption["automated"] is True
+    return found
+
+
+async def test_the_manual_check_is_not_required_where_the_table_answers_or_the_feature_is_absent() -> (
+    None
+):
+    """Rows in the table: the tool reads them. The feature stated absent, or a licence that does not
+    expose the table: nothing could have acted. Everything else sends the reader to the portal."""
+    with_rows = _disruption(await full_telemetry().get_capabilities())
+    assert (with_rows["status"], with_rows["automated"], with_rows["required"]) == (
+        "available",
+        True,
+        False,
+    )
+
+    absent = _disruption(await defender_for_business(entitlements=frozenset()).get_capabilities())
+    assert (absent["status"], absent["automated"], absent["required"]) == (
+        "unlicensed",
+        False,
+        False,
+    )
+
+    unreadable = _disruption(
+        await defender_for_business(
+            hunting_status=403,
+            graph_roles=[r for r in GRAPH_ROLES if not r.startswith("ThreatHunting")],
+        ).get_capabilities()
+    )
+    assert (unreadable["status"], unreadable["automated"], unreadable["required"]) == (
+        "forbidden",
+        False,
+        True,
+    )
 
 
 async def test_a_declaration_that_leaves_an_entitlement_out_states_its_absence() -> None:
