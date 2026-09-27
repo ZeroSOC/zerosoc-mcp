@@ -10,8 +10,8 @@ Python 3.11 or later. With [uv](https://docs.astral.sh/uv/) there is nothing to 
 
 ```bash
 # from a release tag of this repository
-uvx --from "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.6#subdirectory=servers/defender-xdr" \
-    --with "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.6#subdirectory=clients/defender-xdr" \
+uvx --from "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.8#subdirectory=servers/defender-xdr" \
+    --with "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.8#subdirectory=clients/defender-xdr" \
     mcp-defender-xdr
 
 # or from a clone
@@ -31,9 +31,9 @@ The server speaks MCP over stdio and is configured by environment variables only
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.6#subdirectory=servers/defender-xdr",
+        "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.8#subdirectory=servers/defender-xdr",
         "--with",
-        "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.6#subdirectory=clients/defender-xdr",
+        "git+https://github.com/ZeroSOC/zerosoc-mcp@defender-xdr-v0.3.8#subdirectory=clients/defender-xdr",
         "mcp-defender-xdr"
       ],
       "env": {

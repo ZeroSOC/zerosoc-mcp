@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## defender-xdr 0.3.8 (2026-09-27)
+
+Everything below was on `main` after 0.3.7 under the same version number: the identity and mailbox containment of PR #15 and the probe binding and disruption events of PR #16. A pin, a manifest and a published package that all said `0.3.7` named three different trees, so this release gives them a number and a tag; the server README installs it.
+
 **Added**
 - `defender_get_disruption_events` reads the `DisruptionAndResponseEvents` hunting table for a time
   window, for one device or one account, newest first and bounded, so what automatic attack
