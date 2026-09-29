@@ -1399,6 +1399,15 @@
       ]
     },
     {
+      "tool": "entra_list_directory_roles",
+      "operation": "defender-xdr:list_directory_roles",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "RoleManagement.Read.Directory"
+      ]
+    },
+    {
       "tool": "entra_revoke_sign_in_sessions",
       "operation": "defender-xdr:revoke_sign_in_sessions",
       "kind": "action",

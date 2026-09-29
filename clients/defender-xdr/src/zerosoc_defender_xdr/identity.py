@@ -1,4 +1,5 @@
-"""Entra ID accounts (Microsoft Graph, /users): who an account is, and the two ways to contain it.
+"""Entra ID accounts (Microsoft Graph, /users): who an account is, which directory roles it holds
+(/directoryRoles), and the two ways to contain it.
 
 An incident that reaches an identity is contained in the directory, not on the endpoint. Two actions
 belong here and no others: ending the account's sessions, and disabling it. Both are recorded with
@@ -23,6 +24,11 @@ from .transport import GRAPH, JsonObject, capped, odata, seg
 
 _READ = ("User.Read.All",)
 """Reading the directory. `Directory.Read.All` grants it too, where a tenant prefers that."""
+_ROLES = ("RoleManagement.Read.Directory",)
+"""Reading the activated directory roles and who holds them. `Directory.Read.All` grants it too,
+where a tenant prefers that. A member is described in full only where the application may read its
+type as well (`User.Read.All` for an account, which `_READ` already asks for); otherwise the
+directory answers with its type and id alone. `Directory.Read.All` reads every type."""
 _REVOKE = ("User.RevokeSessions.All",)
 """Ending an account's sessions. `User.ReadWrite.All` grants it too; this one is the least
 privilege that does, and it cannot change anything about the account."""
@@ -35,6 +41,16 @@ FIELDS = (
 )
 """What an account answers with. `accountEnabled` is not in the directory's own default set, and it
 is the one field a reader deciding on containment — or reading back what containment did — needs."""
+
+ROLE_FIELDS = "id,displayName,roleTemplateId"
+_MEMBER_SELECT = "id,displayName,userPrincipalName,userType"
+MEMBER_FIELDS = ("@odata.type", "id", "userPrincipalName", "displayName", "userType")
+"""What a role member answers with, whatever its type: `@odata.type` tells an account from a
+service principal or a group, and a property the type does not have is null. `userType` is not in
+the directory's default set for an account, so it is asked for by name."""
+MAX_ROLES = 500
+"""Activated roles come from the directory's catalog of built-in roles, well under this; the bound
+is there so that no answer is unbounded."""
 
 UserId = Annotated[
     str,
@@ -74,6 +90,53 @@ class Identity(Surface):
         return await self._api.request(
             GRAPH, "GET", f"/users/{seg(user_id)}", params={"$select": FIELDS}
         )
+
+    @operation(tool="entra_list_directory_roles", api="graph", permissions=_ROLES)
+    async def list_directory_roles(
+        self,
+        filter: Filter = None,
+        top: Annotated[int, top("members per role", 100, 1000)] = 100,
+    ) -> JsonObject:
+        """List the Entra ID directory roles that are in use in the tenant, each with who holds
+        it: the role's id, display name and roleTemplateId (the same in every tenant for a built-in
+        role, so match on it rather than on the name), and for each member its @odata.type (user,
+        servicePrincipal or group), id, userPrincipalName, displayName and userType (Member or
+        Guest); a property the member's type does not have is null. Use it to tell privileged
+        accounts from the rest, e.g. before trusting an account's activity or approving action on
+        it; prefer entra_get_user to read one account. Only activated roles appear, which is every
+        role anyone holds. The members are the active, tenant-wide assignments: an eligible
+        assignment not activated now, or one scoped to an administrative unit, is not listed, and a
+        group that holds a role is listed as the group, not its members. Filter by role, e.g.
+        "roleTemplateId eq '62e90394-69f5-4237-9190-012177145e10'" (Global Administrator) or
+        "displayName eq 'Security Administrator'". Each role's members are read to the end and cut
+        at `top`; `hasMoreMembers` says a role was cut, so raise `top` rather than reading the
+        list as complete."""
+        roles = await self._api.collect(
+            GRAPH,
+            "/directoryRoles",
+            params={**odata(filter), "$select": ROLE_FIELDS},
+            limit=MAX_ROLES,
+        )
+        size = capped(top, 100, 1000)
+        value = [await self._role_with_members(role, size) for role in roles]
+        return {"value": value, "total": len(value)}
+
+    async def _role_with_members(self, role: JsonObject, size: int) -> JsonObject:
+        """One role and its members. Read from the role rather than expanded on the list: an
+        expansion of directory objects stops at twenty members, offers no next link and takes no
+        $select, so it would cut a large role silently and never carry `userType`. One more than
+        the cap is read, which is how a cut is told from a role that fits exactly."""
+        path = f"/directoryRoles/{seg(role['id'])}/members"
+        found = await self._api.collect(
+            GRAPH, path, params={"$select": _MEMBER_SELECT}, limit=size + 1
+        )
+        return {
+            "id": role.get("id"),
+            "displayName": role.get("displayName"),
+            "roleTemplateId": role.get("roleTemplateId"),
+            "members": [{k: m.get(k) for k in MEMBER_FIELDS} for m in found[:size]],
+            "hasMoreMembers": len(found) > size,
+        }
 
     @operation(
         tool="entra_revoke_sign_in_sessions", api="graph", kind="action", permissions=_REVOKE

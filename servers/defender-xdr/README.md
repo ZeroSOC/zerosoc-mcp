@@ -67,7 +67,7 @@ The server is **Graph-first**: XDR-level operations use the [Microsoft Graph sec
 | Alerts | 2 | 2 | | alerts_v2: Endpoint, Office 365, Identity, Cloud Apps, Entra ID Protection |
 | Advanced hunting | 2 | | | cross-workload KQL; what attack disruption did, without writing the query |
 | Entra ID logs | 2 | | | sign-ins, directory audits |
-| Entra ID accounts | 2 | | 3 | list and read accounts; revoke sessions, disable and enable |
+| Entra ID accounts | 3 | | 3 | list and read accounts, list who holds each directory role; revoke sessions, disable and enable |
 | Mailbox rules | 2 | | 2 | list and read inbox rules; remove one, and put a captured one back |
 | Devices | 6 | 2 | 8 | isolate, release, scan, restrict, quarantine, package, offboard |
 | Machine actions | 7 | | 5 | action history, live response, investigations, library |
@@ -151,6 +151,7 @@ A **Microsoft Entra ID app registration** with **Application** permissions (admi
 - `ThreatHunting.Read.All`
 - `AuditLog.Read.All` and `Directory.Read.All` for the Entra ID logs (the sign-in log needs an Entra ID P1 or P2 licence in the tenant)
 - `User.Read.All` to read accounts (`Directory.Read.All` grants it too)
+- `RoleManagement.Read.Directory` to list directory roles and who holds them (`Directory.Read.All` grants it too). A role member is described in full only where the app may also read its type (`User.Read.All` for an account); otherwise it comes back with its type and id alone
 - `User.RevokeSessions.All` and `User.EnableDisableAccount.All` for identity containment, only if response actions are enabled. `User.ReadWrite.All` grants both and much else besides; the two above are the least privilege that does
 - `Mail.Read` to read inbox rules, `Mail.ReadWrite` to remove one or put one back (only if response actions are enabled). Both are mailbox-wide, so scope them with an [application access policy](https://learn.microsoft.com/graph/auth-limit-mailbox-access) where the tenant allows it
 

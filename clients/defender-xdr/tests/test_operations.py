@@ -10,7 +10,7 @@ import pytest
 from defender_fakes import Script
 from zerosoc_defender_xdr.client import OPERATIONS, DefenderClient
 from zerosoc_defender_xdr.errors import ActionsDisabledError
-from zerosoc_defender_xdr.identity import FIELDS
+from zerosoc_defender_xdr.identity import FIELDS, ROLE_FIELDS
 from zerosoc_defender_xdr.indicators import Indicator
 from zerosoc_defender_xdr.machine_actions import CommandParam, LiveResponseCommand
 
@@ -77,6 +77,13 @@ CALLS: list[tuple[str, dict[str, Any], str, str, dict[str, Any] | None]] = [
         "GET",
         f"{G}/users/alice%40contoso.com",
         {"$select": FIELDS},
+    ),
+    (
+        "list_directory_roles",
+        {"filter": "displayName eq 'Global Administrator'"},
+        "GET",
+        f"{G}/directoryRoles",
+        {"$filter": "displayName eq 'Global Administrator'", "$select": ROLE_FIELDS},
     ),
     (
         "revoke_sign_in_sessions",

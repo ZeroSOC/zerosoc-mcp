@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+**Added**
+- `entra_list_directory_roles` lists the directory roles in use in the tenant and who holds each
+  one, so a consumer can tell privileged accounts from the directory's own role assignments. Each
+  role carries its id, display name and `roleTemplateId`; each member its `@odata.type` (user,
+  service principal or group), id, `userPrincipalName`, `displayName` and `userType`, with a
+  property the member's type does not have set to null. The members are read from each role and
+  paged to the end, not expanded on the role list: an expansion of directory objects stops at
+  twenty members with no next link and cannot select `userType`, so it would cut a large role
+  silently. Each role is cut at `top` members (default 100, max 1000) and says so in
+  `hasMoreMembers`. It needs `RoleManagement.Read.Directory`, which `Directory.Read.All` grants
+  too; a member is described in full only where the app may also read its type (`User.Read.All`
+  for an account), and otherwise comes back with its type and id alone.
+
 ## defender-xdr 0.3.8 (2026-09-27)
 
 Everything below was on `main` after 0.3.7 under the same version number: the identity and mailbox containment of PR #15 and the probe binding and disruption events of PR #16. A pin, a manifest and a published package that all said `0.3.7` named three different trees, so this release gives them a number and a tag; the server README installs it.
