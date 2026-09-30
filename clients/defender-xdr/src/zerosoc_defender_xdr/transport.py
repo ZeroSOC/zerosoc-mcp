@@ -46,7 +46,8 @@ GRAPH = Api(
     " (SecurityIncident.ReadWrite.All, SecurityAlert.ReadWrite.All, ThreatHunting.Read.All;"
     " AuditLog.Read.All for the sign-in and directory audit logs; User.Read.All for accounts,"
     " RoleManagement.Read.Directory for directory roles, with User.RevokeSessions.All and User.EnableDisableAccount.All for identity containment;"
-    " Mail.Read and Mail.ReadWrite for inbox rules) with admin consent.",
+    " Mail.Read and Mail.ReadWrite for inbox rules; AuditLogsQuery.Read.All for the Microsoft 365 audit"
+    " log search) with admin consent.",
 )
 MDE = Api(
     "mde",
@@ -100,6 +101,10 @@ class Transport:
         fresh = await self._credential.get_token(api.scope)
         self._tokens[api.scope] = (fresh.token, int(fresh.expires_on))
         return fresh.token
+
+    async def pause(self, seconds: float) -> None:
+        """Wait between the polls of an asynchronous job; the injected sleep, so tests do not wait."""
+        await self._sleep(seconds)
 
     async def claims(self, api: Api) -> dict[str, Any] | None:
         """The claims of the bearer token for an API, read without verification: for reporting the

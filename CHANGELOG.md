@@ -3,6 +3,26 @@
 ## Unreleased
 
 **Added**
+- The Microsoft 365 unified audit log, through Microsoft Graph audit log search. Four read tools
+  (`audit_start_search`, `audit_get_search`, `audit_list_search_records`, `audit_list_searches`)
+  run a search and read what it found. For programs, `DefenderClient.alert_policy_alerts(start,
+  end)` runs one search on the `securityComplianceAlerts` record type, waits for it and folds the
+  `AlertTriggered`, `AlertEntityGenerated` and `AlertUpdated` records into one typed
+  `AlertPolicyAlert` per alert id: policy name and id, severity, status, the audited operation that
+  matched, the actor, the time of the activity, the entities. This is where the alerts of Office 365
+  alert policies are found on a tenant whose Defender for Office 365 licence is Plan 1, where they
+  never reach the alert stream (#8). It needs `AuditLogsQuery.Read.All` and unified audit logging
+  on; with auditing off the client raises `AuditingDisabledError`, and with the permission missing
+  the 403 names it. A search cannot be deleted (the service answers 405 to `DELETE`), so each one
+  stays in the tenant's audit search list; the README says so. The capability probe gains a
+  `graph.audit_search` check, which proves the permission and not that auditing is on, so no data
+  source is bound on it. Measured on a Business Premium test tenant: a custom activity alert was
+  raised 85 seconds after the activity, its records were searchable 9 to 15 minutes later, and a
+  search took 91 seconds end to end. The records name the actor, not the target:
+  `DefenderClient.activity_behind(alert)` reads, for an Entra ID operation, the directory audit
+  events of the same operation by the same actor within five minutes of the activity, which carry
+  the target (the user who received a role, and the role); for other workloads it answers an empty
+  list rather than start a second search.
 - `entra_list_directory_roles` lists the directory roles in use in the tenant and who holds each
   one, so a consumer can tell privileged accounts from the directory's own role assignments. Each
   role carries its id, display name and `roleTemplateId`; each member its `@odata.type` (user,

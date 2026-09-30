@@ -55,6 +55,7 @@ API_CHECKS: dict[str, str] = {
     "graph.sign_ins": "list_sign_ins",
     "graph.users": "list_users",
     "graph.directory_audits": "list_directory_audits",
+    "graph.audit_search": "list_audit_searches",
     "mde.machines": "list_machines",
     "mde.software": "list_software",
     "mde.machine_actions": "list_machine_actions",

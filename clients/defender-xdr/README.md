@@ -12,6 +12,9 @@ page = await client.list_incidents(filter="lastUpdateDateTime gt 2026-09-01T00:0
 evidence = await client.get_incident_evidence("14")  # every entity, once, joined to its device
 await client.add_incident_comment("17", "Triage note ...")  # lands on the master if 17 was merged
 binding = await client.get_capabilities()  # what this tenant exposes
+found = await client.alert_policy_alerts(
+    "2026-09-30T08:00:00Z", "2026-09-30T10:00:00Z"
+)  # typed alert-policy alerts from the audit log
 ```
 
 - **Credentials.** Any object with `async get_token(*scopes)` returning `.token` and `.expires_on` works, which is the shape of the asynchronous credentials of the Azure identity library: a managed identity, a certificate credential or your own token service can be passed in unchanged. `ClientSecretCredential` is the dependency-free default.
