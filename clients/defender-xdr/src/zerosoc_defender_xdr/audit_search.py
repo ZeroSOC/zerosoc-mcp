@@ -15,9 +15,10 @@ Two properties of the service shape every caller:
 from __future__ import annotations
 
 import json
+import re
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 from pydantic import Field
@@ -36,6 +37,9 @@ ALERT_OPERATIONS = ("AlertTriggered", "AlertEntityGenerated", "AlertUpdated")
 RUNNING = ("notStarted", "running")
 POLL_SECONDS = 30.0
 TIMEOUT_SECONDS = 900.0
+ACTIVITY_SLACK_SECONDS = 300
+"""How far either side of an alert's activity time the activity behind it is looked for."""
+ACTIVITY_LIMIT = 20
 RECORD_LIMIT = 5000
 """Alert records read from one search at most; `AlertSearch.truncated` says when the limit was hit."""
 
@@ -259,6 +263,39 @@ class AuditSearch(Surface):
             truncated=len(records) > RECORD_LIMIT,
         )
 
+    async def activity_behind(self, alert: AlertPolicyAlert) -> list[JsonObject]:
+        """**The data plane**: the audited activity an alert matched, read where it can be read now.
+
+        An alert names the actor and the operation, not what the operation changed. For an Entra ID
+        operation (workload ``AzureActiveDirectory``) the change is in the directory audit log: the
+        events of the same activity by the same actor within `ACTIVITY_SLACK_SECONDS` of the
+        activity time, with their target resources (the user who received a role, and the role;
+        the application a user consented to). For any other workload the activity is only in the
+        unified audit log, and reading it is a second search of minutes; this answers an empty
+        list, and the caller records the target as not read.
+        """
+        if alert.workload != "AzureActiveDirectory" or not (
+            alert.operation and alert.actor and alert.activity_time
+        ):
+            return []
+        at = _instant(alert.activity_time)
+        low = (at - timedelta(seconds=ACTIVITY_SLACK_SECONDS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        high = (at + timedelta(seconds=ACTIVITY_SLACK_SECONDS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        activity = alert.operation.rstrip(".").replace("'", "''")
+        actor = alert.actor.replace("'", "''")
+        found = await self._api.request(
+            GRAPH,
+            "GET",
+            "/auditLogs/directoryAudits",
+            params=odata(
+                f"activityDisplayName eq '{activity}'"
+                f" and initiatedBy/user/userPrincipalName eq '{actor}'"
+                f" and activityDateTime ge {low} and activityDateTime le {high}",
+                ACTIVITY_LIMIT,
+            ),
+        )
+        return list(found.get("value") or [])
+
     async def _audit_call(self, method: str, path: str, json: Any = None) -> JsonObject:
         try:
             if method == "POST":
@@ -334,6 +371,14 @@ def _decoded(value: Any) -> JsonObject:
     except ValueError:
         return {"raw": str(value)}
     return found if isinstance(found, dict) else {"raw": found}
+
+
+def _instant(value: str) -> datetime:
+    """An audit timestamp as an aware UTC datetime. The audit log writes seven fractional digits
+    ("2026-09-30T08:29:58.0000000Z"), one more than the standard library reads."""
+    trimmed = re.sub(r"(\.\d{6})\d+", r"\1", value.strip()).replace("Z", "+00:00")
+    parsed = datetime.fromisoformat(trimmed)
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def _text(value: Any) -> str | None:

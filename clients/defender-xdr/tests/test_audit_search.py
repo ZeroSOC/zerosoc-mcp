@@ -160,3 +160,30 @@ async def test_a_search_window_must_be_timestamps(client: DefenderClient, script
     with pytest.raises(InvalidInputError, match="ISO 8601"):
         await client.start_audit_search(start="yesterday", end="2026-09-30T09:00:00Z")
     assert script.requests == []
+
+
+async def test_the_activity_behind_an_entra_alert_is_read_from_the_directory_audit_log(
+    client: DefenderClient, script: Script
+) -> None:
+    role = fold_alert_records(RECORDS)[1]
+    event = {"activityDisplayName": "Add member to role", "targetResources": [{"id": "u-2"}]}
+    script.json("GET", f"{G}/auditLogs/directoryAudits", {"value": [event]})
+
+    found = await client.activity_behind(role)
+
+    assert found == [event]
+    (request,) = script.requests
+    assert request.url.params["$filter"] == (
+        "activityDisplayName eq 'Add member to role'"
+        " and initiatedBy/user/userPrincipalName eq 'admin@contoso.onmicrosoft.com'"
+        " and activityDateTime ge 2026-09-30T08:24:58Z and activityDateTime le 2026-09-30T08:34:58Z"
+    )
+
+
+async def test_the_activity_behind_any_other_workload_is_not_read_here(
+    client: DefenderClient, script: Script
+) -> None:
+    rule = fold_alert_records(RECORDS)[0]
+
+    assert await client.activity_behind(rule) == []
+    assert script.requests == []

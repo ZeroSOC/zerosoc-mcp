@@ -18,7 +18,11 @@
   `graph.audit_search` check, which proves the permission and not that auditing is on, so no data
   source is bound on it. Measured on a Business Premium test tenant: a custom activity alert was
   raised 85 seconds after the activity, its records were searchable 9 to 15 minutes later, and a
-  search took 91 seconds end to end.
+  search took 91 seconds end to end. The records name the actor, not the target:
+  `DefenderClient.activity_behind(alert)` reads, for an Entra ID operation, the directory audit
+  events of the same operation by the same actor within five minutes of the activity, which carry
+  the target (the user who received a role, and the role); for other workloads it answers an empty
+  list rather than start a second search.
 - `entra_list_directory_roles` lists the directory roles in use in the tenant and who holds each
   one, so a consumer can tell privileged accounts from the directory's own role assignments. Each
   role carries its id, display name and `roleTemplateId`; each member its `@odata.type` (user,
