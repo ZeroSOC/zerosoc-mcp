@@ -64,6 +64,31 @@ CALLS: list[tuple[str, dict[str, Any], str, str, dict[str, Any] | None]] = [
     ),
     ("list_sign_ins", {"top": 5}, "GET", f"{G}/auditLogs/signIns", {"$top": "5"}),
     ("list_directory_audits", {}, "GET", f"{G}/auditLogs/directoryAudits", LIST),
+    ("list_audit_searches", {}, "GET", f"{G}/security/auditLog/queries", LIST),
+    (
+        "start_audit_search",
+        {
+            "start": "2026-09-30T07:00:00Z",
+            "end": "2026-09-30T09:00:00Z",
+            "operations": ["New-InboxRule"],
+        },
+        "POST",
+        f"{G}/security/auditLog/queries",
+        {
+            "displayName": "zerosoc audit search",
+            "filterStartDateTime": "2026-09-30T07:00:00Z",
+            "filterEndDateTime": "2026-09-30T09:00:00Z",
+            "operationFilters": ["New-InboxRule"],
+        },
+    ),
+    ("get_audit_search", {"query_id": "q-1"}, "GET", f"{G}/security/auditLog/queries/q-1", None),
+    (
+        "list_audit_search_records",
+        {"query_id": "q-1"},
+        "GET",
+        f"{G}/security/auditLog/queries/q-1/records",
+        LIST,
+    ),
     (
         "list_users",
         {"filter": "accountEnabled eq false"},
@@ -482,8 +507,8 @@ def test_everything_that_changes_the_estate_is_an_action() -> None:
         - writes
         - {o.name for o in OPERATIONS if o.kind == "action"}
     )
-    # queries, sent as POST
-    assert reads_that_post == {"run_hunting_query", "list_disruption_events"}
+    # queries, sent as POST; an audit search also leaves a saved search in the tenant's list
+    assert reads_that_post == {"run_hunting_query", "list_disruption_events", "start_audit_search"}
 
 
 async def test_a_library_upload_is_multipart(acting_client: DefenderClient, script: Script) -> None:

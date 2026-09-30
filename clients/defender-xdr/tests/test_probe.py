@@ -93,6 +93,7 @@ def tenant(
         sign_ins_status,
     )
     script.json("GET", f"{G}/auditLogs/directoryAudits", {"value": []})
+    script.json("GET", f"{G}/security/auditLog/queries", {"value": []})
     script.json(
         "GET",
         f"{G}/users",

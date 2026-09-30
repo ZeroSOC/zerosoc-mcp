@@ -679,6 +679,7 @@
   "checks": {
     "api": [
       "graph.alerts",
+      "graph.audit_search",
       "graph.directory_audits",
       "graph.incidents",
       "graph.sign_ins",
@@ -1432,6 +1433,42 @@
       "api": "graph",
       "permissions": [
         "User.EnableDisableAccount.All"
+      ]
+    },
+    {
+      "tool": "audit_list_searches",
+      "operation": "defender-xdr:list_audit_searches",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "AuditLogsQuery.Read.All"
+      ]
+    },
+    {
+      "tool": "audit_start_search",
+      "operation": "defender-xdr:start_audit_search",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "AuditLogsQuery.Read.All"
+      ]
+    },
+    {
+      "tool": "audit_get_search",
+      "operation": "defender-xdr:get_audit_search",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "AuditLogsQuery.Read.All"
+      ]
+    },
+    {
+      "tool": "audit_list_search_records",
+      "operation": "defender-xdr:list_audit_search_records",
+      "kind": "read",
+      "api": "graph",
+      "permissions": [
+        "AuditLogsQuery.Read.All"
       ]
     },
     {

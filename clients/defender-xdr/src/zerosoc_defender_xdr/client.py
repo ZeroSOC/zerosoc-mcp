@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from .alerts import Alerts
+from .audit_search import AuditSearch
 from .auth import TokenCredential
 from .capability_probe import CapabilityProbe
 from .entities import Entities
@@ -28,6 +29,7 @@ class DefenderClient(
     Alerts,
     Hunting,
     IdentityLogs,
+    AuditSearch,
     Identity,
     Mailbox,
     Machines,

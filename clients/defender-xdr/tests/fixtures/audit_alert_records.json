@@ -1,0 +1,120 @@
+{
+  "_comment": "A sample page of /security/auditLog/queries/{id}/records for recordTypeFilters securityComplianceAlerts. Shaped on records read from a Business Premium test tenant; every value is invented.",
+  "value": [
+    {
+      "id": "10000000-0000-0000-0000-000000000001",
+      "createdDateTime": "2026-09-30T08:31:23Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertTriggered",
+      "userId": "SecurityComplianceAlerts",
+      "userType": "System",
+      "service": "SecurityComplianceCenter",
+      "objectId": "a1a1a1a1-0000-0000-0000-000000000001",
+      "auditData": {
+        "RecordType": 40,
+        "Operation": "AlertTriggered",
+        "AlertId": "a1a1a1a1-0000-0000-0000-000000000001",
+        "AlertType": "Custom",
+        "Category": "ThreatManagement",
+        "Comments": "New alert",
+        "Data": "{\"f3u\":\"admin@contoso.onmicrosoft.com\",\"ts\":\"2026-09-30T08:15:00.0000000Z\",\"te\":\"2026-09-30T08:30:00.0000000Z\",\"op\":\"Add member to role.\",\"wl\":\"AzureActiveDirectory\",\"tdc\":\"1\",\"an\":\"Admin role assigned\",\"sev\":\"Medium\"}",
+        "Name": "Admin role assigned",
+        "PolicyId": "b2b2b2b2-0000-0000-0000-000000000001",
+        "Severity": "Medium",
+        "Source": "Office 365 Security & Compliance",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000002",
+      "createdDateTime": "2026-09-30T08:31:23Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertEntityGenerated",
+      "userId": "SecurityComplianceAlerts",
+      "objectId": "admin@contoso.onmicrosoft.com",
+      "auditData": {
+        "RecordType": 40,
+        "Operation": "AlertEntityGenerated",
+        "AlertId": "a1a1a1a1-0000-0000-0000-000000000001",
+        "AlertEntityId": "admin@contoso.onmicrosoft.com",
+        "EntityType": "User",
+        "AlertType": "Custom",
+        "Category": "ThreatManagement",
+        "Data": "{\"etype\":\"User\",\"eid\":\"admin@contoso.onmicrosoft.com\",\"ts\":\"2026-09-30T08:29:58.0000000Z\",\"te\":\"2026-09-30T08:29:58.0000000Z\",\"op\":\"Add member to role.\",\"suid\":\"admin@contoso.onmicrosoft.com\",\"ut\":\"Regular\"}",
+        "Name": "Admin role assigned",
+        "PolicyId": "b2b2b2b2-0000-0000-0000-000000000001",
+        "Severity": "Medium",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000003",
+      "createdDateTime": "2026-09-30T07:02:10Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertTriggered",
+      "userId": "SecurityComplianceAlerts",
+      "objectId": "c3c3c3c3-0000-0000-0000-000000000002",
+      "auditData": {
+        "RecordType": 40,
+        "Operation": "AlertTriggered",
+        "AlertId": "c3c3c3c3-0000-0000-0000-000000000002",
+        "AlertType": "System",
+        "Category": "ThreatManagement",
+        "Data": "{\"f3u\":\"pat@contoso.onmicrosoft.com\",\"ts\":\"2026-09-30T06:45:00.0000000Z\",\"te\":\"2026-09-30T07:00:00.0000000Z\",\"op\":\"New-InboxRule\",\"wl\":\"Exchange\"}",
+        "Name": "Creation of forwarding/redirect rule",
+        "PolicyId": "d4d4d4d4-0000-0000-0000-000000000002",
+        "Severity": "Informational",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000004",
+      "createdDateTime": "2026-09-30T07:40:00Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertUpdated",
+      "userId": "SecurityComplianceAlerts",
+      "objectId": "c3c3c3c3-0000-0000-0000-000000000002",
+      "auditData": {
+        "RecordType": 40,
+        "Operation": "AlertUpdated",
+        "AlertId": "c3c3c3c3-0000-0000-0000-000000000002",
+        "AlertType": "System",
+        "Category": "ThreatManagement",
+        "Name": "Creation of forwarding/redirect rule",
+        "PolicyId": "d4d4d4d4-0000-0000-0000-000000000002",
+        "Severity": "Informational",
+        "Status": "Investigating"
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000005",
+      "createdDateTime": "2026-09-30T08:05:00Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertEntityGenerated",
+      "userId": "SecurityComplianceAlerts",
+      "objectId": "sam@contoso.onmicrosoft.com",
+      "auditData": {
+        "RecordType": 40,
+        "Operation": "AlertEntityGenerated",
+        "AlertId": "e5e5e5e5-0000-0000-0000-000000000003",
+        "AlertEntityId": "sam@contoso.onmicrosoft.com",
+        "EntityType": "User",
+        "Data": "not json",
+        "Name": "Email reported by user as malware or phish",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "10000000-0000-0000-0000-000000000006",
+      "createdDateTime": "2026-09-30T08:06:00Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertSomethingElse",
+      "userId": "SecurityComplianceAlerts",
+      "auditData": {
+        "RecordType": 40,
+        "AlertId": "f6f6f6f6-0000-0000-0000-000000000004",
+        "Name": "Not an alert operation"
+      }
+    }
+  ]
+}
