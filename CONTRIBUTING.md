@@ -8,7 +8,7 @@ By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 ## Ground rules
 
 - **License & DCO** — contributions are accepted under [Apache 2.0](LICENSE) with [Developer Certificate of Origin](https://developercertificate.org/) sign-off. Add `Signed-off-by` with `git commit -s`. No CLA.
-- **Conventional Commits** — `feat:`, `fix:`, `docs:`, `chore:` etc., scoped to the server when relevant (e.g. `feat(defender-xdr): add incident comments tool`).
+- **Conventional Commits** — `feat:`, `fix:`, `docs:`, `chore:` etc., scoped to the server when relevant (e.g. `feat(microsoft-security): add incident comments tool`).
 - **One technology, two packages** — the tool client lives under `clients/<technology>/`, the MCP server that wraps it under `servers/<technology>/`; they are versioned together (semver) and released under a `<technology>-v<version>` tag.
 - **Check the operating model first** — before proposing a new server, check the [coverage registry](README.md#coverage-registry). If an official vendor server exists (Adopt) or a partial one exists (Contribute), we work upstream instead of building here.
 
@@ -33,7 +33,7 @@ make check    # format check, lint, types, security lint
 make test     # the whole suite, no network and no tenant needed
 make manifest # regenerate the capabilities manifest after changing the tool surface
 make ci       # what CI runs, including the manifest check
-uv run mcp-defender-xdr   # run a server from source
+uv run mcp-microsoft-security   # run a server from source
 ```
 
 Tests come first and run against a scripted HTTP transport; nothing in the suite reaches a tenant. Smoke-test against a **non-production tenant only**, with response actions disabled.

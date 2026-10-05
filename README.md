@@ -20,7 +20,7 @@ For each security technology we pick exactly one engagement mode:
 
 | Technology | Mode | Status | Server / upstream |
 |---|---|---|---|
-| Microsoft Defender XDR | **Build** | Active | [`servers/defender-xdr`](servers/defender-xdr/) |
+| Microsoft security (Defender XDR, Defender for Endpoint, Entra ID, Purview Audit) | **Build** | Active | [`servers/microsoft-security`](servers/microsoft-security/) |
 | Google SecOps (Chronicle) | Contribute | Planned | Official server exists but is partial; upstream contributions being scoped |
 | CrowdStrike Falcon | Adopt | Evaluating | Official/third-party options under evaluation |
 | Microsoft Sentinel | — | Candidate | Not yet scoped |
@@ -50,9 +50,9 @@ Every server built here meets the same bar:
 
 ## Servers
 
-### [`servers/defender-xdr`](servers/defender-xdr/) — Microsoft Defender XDR
+### [`servers/microsoft-security`](servers/microsoft-security/) — Microsoft security
 
-Incidents with their full evidence inventory, alerts, cross-workload advanced hunting and Entra ID logs via **Microsoft Graph**, a capability probe, plus device response actions, threat indicators, and vulnerability management via the Microsoft Defender for Endpoint API. See its [README](servers/defender-xdr/README.md) for setup, and [`clients/defender-xdr`](clients/defender-xdr/) for the tool client.
+Incidents with their full evidence inventory, alerts, cross-workload advanced hunting, Entra ID logs and the Microsoft 365 unified audit log (Microsoft Purview Audit) via **Microsoft Graph**, a capability probe, plus device response actions, threat indicators, and vulnerability management via the Microsoft Defender for Endpoint API. See its [README](servers/microsoft-security/README.md) for setup, and [`clients/microsoft-security`](clients/microsoft-security/) for the tool client.
 
 ## Contributing
 

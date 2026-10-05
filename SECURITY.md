@@ -28,7 +28,7 @@ scope:
 - **Response-action gating**: any way to reach a gated response action without
   `DEFENDER_MCP_ALLOW_ACTIONS=true`, or any action registered that the tool
   annotations declare read-only. See the gating section of the
-  [server README](servers/defender-xdr/README.md).
+  [server README](servers/microsoft-security/README.md).
 - Privilege or tenant confusion: a call that reads or writes outside the tenant
   the credentials belong to.
 - Prompt-injection paths where content fetched from a tenant can drive the

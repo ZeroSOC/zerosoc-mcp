@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+**Changed**
+- **Renamed to `microsoft-security`.** The integration covers more than Defender XDR: Defender for
+  Endpoint, Entra ID and, through the audit log search, Microsoft Purview Audit. The packages are
+  now `zerosoc-microsoft-security` (import `zerosoc_microsoft_security`, command
+  `zerosoc-microsoft-security`) and `zerosoc-mcp-microsoft-security` (import
+  `zerosoc_mcp_microsoft_security`, command `mcp-microsoft-security`), in
+  `clients/microsoft-security` and `servers/microsoft-security`; `DefenderClient` is
+  `MicrosoftSecurityClient`; the MCP server announces itself as `zerosoc-microsoft-security`; release
+  tags are `microsoft-security-v*`. Unchanged: the tool names, the `DEFENDER_*` environment
+  variables, `DefenderApiError`, and the integration id `defender-xdr` in the capabilities manifest
+  and the binding (`mcp:defender-xdr/<tool>`, `defender-xdr:<operation>`), on which bindings,
+  conformance corpora and the skills' source profile are keyed. Earlier entries below keep the old
+  names.
+
 **Fixed**
 - `alert_policy_alerts` no longer loses a repeat activity, nor points a user report at a record
   that does not exist (#22). On Defender for Office 365 Plan 1 a second activity matching a policy
