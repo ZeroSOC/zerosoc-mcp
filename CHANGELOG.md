@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## microsoft-security 0.4.0 (2026-10-05)
 
 **Changed**
 - **Renamed to `microsoft-security`.** The integration covers more than Defender XDR: Defender for

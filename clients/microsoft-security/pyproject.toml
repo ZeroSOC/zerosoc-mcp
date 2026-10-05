@@ -1,6 +1,6 @@
 [project]
 name = "zerosoc-microsoft-security"
-version = "0.3.8"
+version = "0.4.0"
 description = "Typed tool client for Microsoft security: Defender XDR and Microsoft Graph security, Defender for Endpoint, Entra ID logs and the Microsoft Purview audit log. The MCP server in servers/microsoft-security is a thin wrapper over it."
 readme = "README.md"
 license = "Apache-2.0"

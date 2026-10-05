@@ -2,7 +2,7 @@
 
 A **Model Context Protocol (MCP) server** for Microsoft security: Defender XDR, Defender for Endpoint, Entra ID and Microsoft Purview Audit. It lets AI agents investigate incidents, read the full evidence of an incident as one table, hunt across all Defender workloads, read Entra ID sign-in and audit logs, search the Microsoft 365 audit log, manage devices and query vulnerabilities, directly against the source of truth, with no telemetry duplication.
 
-It was called `defender-xdr` until 0.3.8 (packages `zerosoc-defender-xdr` and `zerosoc-mcp-defender-xdr`, tags `defender-xdr-v*`). The integration's id in the capabilities manifest is still `defender-xdr`.
+It was called `defender-xdr` up to 0.3.8 (packages `zerosoc-defender-xdr` and `zerosoc-mcp-defender-xdr`, tags `defender-xdr-v*`); 0.4.0 is the first version under the new name. The integration's id in the capabilities manifest is still `defender-xdr`.
 
 It runs on its own in any MCP host (Claude Desktop, Claude Code, VS Code, your own agent). It is a thin wrapper over the typed tool client in [`clients/microsoft-security`](../../clients/microsoft-security/): every tool is one operation of that client, so an agent and a program that calls the client directly get the same behaviour.
 
@@ -12,8 +12,8 @@ Python 3.11 or later. With [uv](https://docs.astral.sh/uv/) there is nothing to 
 
 ```bash
 # from a release tag of this repository
-uvx --from "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.3.8#subdirectory=servers/microsoft-security" \
-    --with "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.3.8#subdirectory=clients/microsoft-security" \
+uvx --from "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.4.0#subdirectory=servers/microsoft-security" \
+    --with "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.4.0#subdirectory=clients/microsoft-security" \
     mcp-microsoft-security
 
 # or from a clone
@@ -33,9 +33,9 @@ The server speaks MCP over stdio and is configured by environment variables only
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.3.8#subdirectory=servers/microsoft-security",
+        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.4.0#subdirectory=servers/microsoft-security",
         "--with",
-        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.3.8#subdirectory=clients/microsoft-security",
+        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.4.0#subdirectory=clients/microsoft-security",
         "mcp-microsoft-security"
       ],
       "env": {

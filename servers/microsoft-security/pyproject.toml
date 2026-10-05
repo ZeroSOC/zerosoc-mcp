@@ -1,13 +1,13 @@
 [project]
 name = "zerosoc-mcp-microsoft-security"
-version = "0.3.8"
+version = "0.4.0"
 description = "Model Context Protocol (MCP) server for Microsoft security (Defender XDR, Defender for Endpoint, Entra ID, Microsoft Purview Audit): a thin wrapper that exposes every operation of the zerosoc-microsoft-security tool client as an MCP tool"
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE", "NOTICE"]
 requires-python = ">=3.11"
 dependencies = [
-    "zerosoc-microsoft-security==0.3.8",
+    "zerosoc-microsoft-security==0.4.0",
     "mcp>=2,<3",
 ]
 
