@@ -1,0 +1,190 @@
+{
+  "_comment": "A sample page of /security/auditLog/queries/{id}/records for the alert record type and the record types its pointers name. Two shapes: a custom activity alert whose second matching activity arrives as an AlertUpdated, and a user report whose AlertTriggered points to the entity's sid while the AlertUpdated points to the UserSubmission record. Shaped on records read from a Business Premium test tenant; every value is invented.",
+  "value": [
+    {
+      "id": "30000000-0000-0000-0000-000000000001",
+      "createdDateTime": "2026-10-05T15:30:30Z",
+      "auditLogRecordType": "ExchangeAdmin",
+      "operation": "Add-MailboxPermission",
+      "userPrincipalName": "admin@contoso.onmicrosoft.com",
+      "auditData": {
+        "Id": "30000000-0000-0000-0000-000000000001",
+        "CreationTime": "2026-10-05T15:30:30",
+        "RecordType": 1,
+        "Operation": "Add-MailboxPermission",
+        "UserId": "admin@contoso.onmicrosoft.com",
+        "ResultStatus": "True",
+        "ObjectId": "finance",
+        "Parameters": [
+          {"Name": "Identity", "Value": "finance"},
+          {"Name": "User", "Value": "pat@contoso.onmicrosoft.com"},
+          {"Name": "AccessRights", "Value": "FullAccess"}
+        ]
+      }
+    },
+    {
+      "id": "30000000-0000-0000-0000-000000000002",
+      "createdDateTime": "2026-10-05T15:33:15Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertTriggered",
+      "auditData": {
+        "Id": "30000000-0000-0000-0000-000000000002",
+        "RecordType": 40,
+        "Operation": "AlertTriggered",
+        "AlertId": "a7a7a7a7-0000-0000-0000-000000000001",
+        "AlertType": "Custom",
+        "Category": "ThreatManagement",
+        "Data": "{\"f3u\":\"admin@contoso.onmicrosoft.com\",\"ts\":\"2026-10-05T15:30:00.0000000Z\",\"te\":\"2026-10-05T15:45:00.0000000Z\",\"op\":\"Add-MailboxPermission\",\"wl\":\"Exchange\",\"reid\":\"30000000-0000-0000-0000-000000000001\",\"rtp\":1,\"mdt\":\"u\"}",
+        "Name": "Mailbox FullAccess granted",
+        "PolicyId": "b7b7b7b7-0000-0000-0000-000000000001",
+        "Severity": "Medium",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "30000000-0000-0000-0000-000000000003",
+      "createdDateTime": "2026-10-05T15:33:15Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertEntityGenerated",
+      "auditData": {
+        "Id": "30000000-0000-0000-0000-000000000003",
+        "RecordType": 40,
+        "Operation": "AlertEntityGenerated",
+        "AlertId": "a7a7a7a7-0000-0000-0000-000000000001",
+        "AlertEntityId": "admin@contoso.onmicrosoft.com",
+        "EntityType": "User",
+        "Data": "{\"etype\":\"User\",\"eid\":\"admin@contoso.onmicrosoft.com\",\"ts\":\"2026-10-05T15:30:30.0000000Z\",\"op\":\"Add-MailboxPermission\",\"suid\":\"admin@contoso.onmicrosoft.com\"}",
+        "Name": "Mailbox FullAccess granted",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "30000000-0000-0000-0000-000000000004",
+      "createdDateTime": "2026-10-05T15:36:50Z",
+      "auditLogRecordType": "ExchangeAdmin",
+      "operation": "Add-MailboxPermission",
+      "userPrincipalName": "admin@contoso.onmicrosoft.com",
+      "auditData": {
+        "Id": "30000000-0000-0000-0000-000000000004",
+        "CreationTime": "2026-10-05T15:36:50",
+        "RecordType": 1,
+        "Operation": "Add-MailboxPermission",
+        "UserId": "admin@contoso.onmicrosoft.com",
+        "ResultStatus": "True",
+        "ObjectId": "payroll",
+        "Parameters": [
+          {"Name": "Identity", "Value": "payroll"},
+          {"Name": "User", "Value": "pat@contoso.onmicrosoft.com"},
+          {"Name": "AccessRights", "Value": "FullAccess"}
+        ]
+      }
+    },
+    {
+      "id": "30000000-0000-0000-0000-000000000005",
+      "createdDateTime": "2026-10-05T15:39:27Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertUpdated",
+      "auditData": {
+        "Id": "30000000-0000-0000-0000-000000000005",
+        "RecordType": 40,
+        "Operation": "AlertUpdated",
+        "AlertId": "a7a7a7a7-0000-0000-0000-000000000001",
+        "AlertType": "Custom",
+        "Data": "{\"f3u\":\"admin@contoso.onmicrosoft.com\",\"ts\":\"2026-10-05T15:30:00.0000000Z\",\"te\":\"2026-10-05T15:45:00.0000000Z\",\"op\":\"Add-MailboxPermission\",\"wl\":\"Exchange\",\"reid\":\"30000000-0000-0000-0000-000000000004\",\"rtp\":1,\"mdt\":\"Audit\"}",
+        "Name": "Mailbox FullAccess granted",
+        "Severity": "Medium",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "30000000-0000-0000-0000-000000000006",
+      "createdDateTime": "2026-10-05T16:02:00Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertUpdated",
+      "auditData": {
+        "Id": "30000000-0000-0000-0000-000000000006",
+        "RecordType": 40,
+        "Operation": "AlertUpdated",
+        "AlertId": "a7a7a7a7-0000-0000-0000-000000000001",
+        "AlertType": "Custom",
+        "Data": "{\"f3u\":\"admin@contoso.onmicrosoft.com\",\"ts\":\"2026-10-05T15:30:00.0000000Z\",\"te\":\"2026-10-05T15:45:00.0000000Z\",\"op\":\"Add-MailboxPermission\",\"wl\":\"Exchange\",\"reid\":\"30000000-0000-0000-0000-000000000004\",\"rtp\":1,\"mdt\":\"u\"}",
+        "Name": "Mailbox FullAccess granted",
+        "Severity": "Medium",
+        "Status": "Investigating"
+      }
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000001",
+      "createdDateTime": "2026-10-05T16:19:16Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertTriggered",
+      "auditData": {
+        "Id": "40000000-0000-0000-0000-000000000001",
+        "RecordType": 40,
+        "Operation": "AlertTriggered",
+        "AlertId": "c9c9c9c9-0000-0000-0000-000000000002",
+        "AlertType": "System",
+        "Category": "ThreatManagement",
+        "Data": "{\"f3u\":\"sam@contoso.onmicrosoft.com\",\"ts\":\"2026-10-05T16:15:00.0000000Z\",\"te\":\"2026-10-05T16:30:00.0000000Z\",\"op\":\"UserSubmission\",\"wl\":\"SecurityComplianceCenter\",\"reid\":\"5a5a5a5a-0000-0000-0000-000000000009\",\"rtp\":29,\"mdt\":\"u\"}",
+        "Name": "Email reported by user as malware or phish",
+        "PolicyId": "d9d9d9d9-0000-0000-0000-000000000002",
+        "Severity": "Low",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000002",
+      "createdDateTime": "2026-10-05T16:19:16Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertEntityGenerated",
+      "auditData": {
+        "Id": "40000000-0000-0000-0000-000000000002",
+        "RecordType": 40,
+        "Operation": "AlertEntityGenerated",
+        "AlertId": "c9c9c9c9-0000-0000-0000-000000000002",
+        "AlertEntityId": "sam@contoso.onmicrosoft.com",
+        "EntityType": "User",
+        "Data": "{\"etype\":\"User\",\"eid\":\"sam@contoso.onmicrosoft.com\",\"ts\":\"2026-10-05T16:19:15.9011875Z\",\"op\":\"UserSubmission\",\"suid\":\"sam@contoso.onmicrosoft.com\",\"tsd\":\"billing@fabrikam.example\",\"imsgid\":\"<invented-1@fabrikam.example>\",\"trc\":\"sam@contoso.onmicrosoft.com\",\"ms\":\"Invoice overdue\",\"sid\":\"5a5a5a5a-0000-0000-0000-000000000009\",\"etps\":\"SubmissionId:5b5b5b5b-0000-0000-0000-000000000009\"}",
+        "Name": "Email reported by user as malware or phish",
+        "Status": "Active"
+      }
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000003",
+      "createdDateTime": "2026-10-05T16:19:16Z",
+      "auditLogRecordType": "MailSubmission",
+      "operation": "UserSubmission",
+      "userPrincipalName": "sam@contoso.onmicrosoft.com",
+      "auditData": {
+        "Id": "40000000-0000-0000-0000-000000000003",
+        "CreationTime": "2026-10-05T16:19:16Z",
+        "RecordType": 29,
+        "Operation": "UserSubmission",
+        "UserId": "sam@contoso.onmicrosoft.com",
+        "P1Sender": "billing@fabrikam.example",
+        "P2Sender": "billing@fabrikam.example",
+        "Recipients": ["sam@contoso.onmicrosoft.com"],
+        "Subject": "Invoice overdue",
+        "SubmissionId": "5b5b5b5b-0000-0000-0000-000000000009",
+        "SubmissionState": "Submitted"
+      }
+    },
+    {
+      "id": "40000000-0000-0000-0000-000000000004",
+      "createdDateTime": "2026-10-05T16:21:14Z",
+      "auditLogRecordType": "SecurityComplianceAlerts",
+      "operation": "AlertUpdated",
+      "auditData": {
+        "Id": "40000000-0000-0000-0000-000000000004",
+        "RecordType": 40,
+        "Operation": "AlertUpdated",
+        "AlertId": "c9c9c9c9-0000-0000-0000-000000000002",
+        "AlertType": "System",
+        "Data": "{\"f3u\":\"sam@contoso.onmicrosoft.com\",\"ts\":\"2026-10-05T16:15:00.0000000Z\",\"te\":\"2026-10-05T16:30:00.0000000Z\",\"op\":\"UserSubmission\",\"wl\":\"SecurityComplianceCenter\",\"reid\":\"40000000-0000-0000-0000-000000000003\",\"rtp\":29,\"mdt\":\"Audit\"}",
+        "Name": "Email reported by user as malware or phish",
+        "Severity": "Low",
+        "Status": "Active"
+      }
+    }
+  ]
+}
