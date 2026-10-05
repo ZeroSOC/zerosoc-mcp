@@ -34,14 +34,19 @@ _PATH = "/security/auditLog/queries"
 ALERT_RECORD_TYPE = "securityComplianceAlerts"
 """Record type 40: what an Office 365 alert policy writes when it raises, updates or names an alert."""
 ALERT_OPERATIONS = ("AlertTriggered", "AlertEntityGenerated", "AlertUpdated")
+ACTIVITY_RECORD_TYPES = ("azureActiveDirectory", "exchangeAdmin", "mailSubmission")
+"""The record types an alert's pointer (`Data.reid`, `Data.rtp`) names for the policies an alert
+intake watches: Entra ID (8), Exchange admin (1) and user submissions (29). They are searched with
+the alert records, so the activity behind an alert is read in the same search."""
 RUNNING = ("notStarted", "running")
 POLL_SECONDS = 30.0
 TIMEOUT_SECONDS = 900.0
 ACTIVITY_SLACK_SECONDS = 300
 """How far either side of an alert's activity time the activity behind it is looked for."""
 ACTIVITY_LIMIT = 20
-RECORD_LIMIT = 5000
-"""Alert records read from one search at most; `AlertSearch.truncated` says when the limit was hit."""
+RECORD_LIMIT = 20000
+"""Records read from one search at most, of every type searched (the activity records count too);
+`AlertSearch.truncated` says when the limit was hit, and an alert past it is not returned."""
 
 Timestamp = Annotated[str, Field(description="UTC ISO 8601 timestamp, e.g. 2026-09-30T08:00:00Z.")]
 Names = Annotated[
@@ -65,6 +70,43 @@ class AlertEntity:
     """The record's `Data`, decoded: for an activity alert it holds the exact activity time
     (`ts`), the operation (`op`) and the acting user (`suid`); for a user-reported message the
     reporter, sender, subject and message id."""
+
+
+@dataclass(frozen=True)
+class AlertActivity:
+    """One audited activity an alert matched, named by the alert's pointer to its audit record.
+
+    An alert can match more than one activity: on Defender for Office 365 Plan 1, a second activity
+    that matches the same policy within its 15-minute window does not raise a new alert, it updates
+    the existing one (an `AlertUpdated` whose pointer names the new record).
+    """
+
+    record_id: str
+    """The `Id` of the activity's audit record (the alert's `Data.reid`)."""
+    repeat: bool
+    """False for the activity that raised the alert, True for one folded into it later. Stable
+    from one search to the next, so a consumer acts on a repeat it has not seen."""
+    record_type: int | None
+    """The record's type number (`Data.rtp`): 1 Exchange admin, 8 Entra ID, 29 user submission."""
+    noted: str
+    """When the alert record that pointed to this activity was written (UTC)."""
+    record: JsonObject | None
+    """The activity's audit record (`auditData`) when the same search returned it, else None: it
+    may not be searchable yet, or fall outside the window or the record types searched."""
+
+    @property
+    def operation(self) -> str | None:
+        return _text((self.record or {}).get("Operation"))
+
+    def as_json(self) -> JsonObject:
+        return {
+            "recordId": self.record_id,
+            "repeat": self.repeat,
+            "recordType": self.record_type,
+            "noted": self.noted,
+            "operation": self.operation,
+            "record": self.record,
+        }
 
 
 @dataclass(frozen=True)
@@ -99,6 +141,9 @@ class AlertPolicyAlert:
     entities: tuple[AlertEntity, ...]
     data: JsonObject
     """The raising record's `Data`, decoded, for fields this type does not name."""
+    activities: tuple[AlertActivity, ...] = ()
+    """Every activity the alert matched, one per audit record: the one that raised it first, then
+    the repeats folded into it. A user report has none until a record names its submission."""
 
     def as_json(self) -> JsonObject:
         return {
@@ -116,6 +161,7 @@ class AlertPolicyAlert:
             "activityTime": self.activity_time,
             "entities": [{"type": e.type, "id": e.id, "data": e.data} for e in self.entities],
             "data": self.data,
+            "activities": [a.as_json() for a in self.activities],
         }
 
 
@@ -132,7 +178,7 @@ class AlertSearch:
     """Epoch seconds when it was seen succeeded: `completed - requested` is the search's own cost."""
     alerts: tuple[AlertPolicyAlert, ...]
     truncated: bool
-    """True when the search held more records than `RECORD_LIMIT`."""
+    """True when the search held more records than `RECORD_LIMIT`: some alerts may be missing."""
 
 
 class AuditSearch(Surface):
@@ -211,16 +257,22 @@ class AuditSearch(Surface):
         end: str,
         *,
         display_name: str = "zerosoc alert-policy intake",
+        activity_types: tuple[str, ...] = ACTIVITY_RECORD_TYPES,
         poll_seconds: float = POLL_SECONDS,
         timeout_seconds: float = TIMEOUT_SECONDS,
     ) -> AlertSearch:
         """**The data plane**: every alert-policy alert whose records fall in ``[start, end)``.
 
-        One search on the alert record type, waited for, read whole (up to `RECORD_LIMIT`
-        records) and folded into one `AlertPolicyAlert` per alert id. Records arrive late (on a
-        Business Premium tenant an alert was searchable 9 to 15 minutes after it was raised), so a
-        poller searches a window reaching back well beyond its interval and deduplicates on
-        `alert_id`.
+        One search on the alert record type and the `ACTIVITY_RECORD_TYPES`, waited for, read
+        whole (up to `RECORD_LIMIT` records of all types) and folded into one `AlertPolicyAlert` per alert id,
+        each with the activities it matched. Records arrive late (on a Business Premium tenant an
+        alert record was searchable 8 to 21 minutes after the activity), so a poller searches a
+        window reaching back well beyond its interval, deduplicates on `alert_id`, and takes an
+        activity it has not seen on a known alert as a repeat. A repeat updates the alert only
+        within the policy's 15-minute window, so a window reaching back an hour keeps the raising
+        record and its updates together. ``activity_types=()`` searches the alert records alone,
+        for a tenant whose activity records would crowd the limit: the activities are then named,
+        never read.
 
         Raises `AuditingDisabledError` when the tenant does not record the audit log, and
         `TimeoutError` when the search has not completed within ``timeout_seconds``.
@@ -233,7 +285,7 @@ class AuditSearch(Surface):
                 "displayName": display_name,
                 "filterStartDateTime": _utc(start, "start"),
                 "filterEndDateTime": _utc(end, "end"),
-                "recordTypeFilters": [ALERT_RECORD_TYPE],
+                "recordTypeFilters": [ALERT_RECORD_TYPE, *activity_types],
             },
         )
         query_id = str(created.get("id", ""))
@@ -311,20 +363,38 @@ def fold_alert_records(records: list[JsonObject]) -> tuple[AlertPolicyAlert, ...
     """Audit records of type `securityComplianceAlerts` -> one alert per alert id, oldest first.
 
     `AlertTriggered` names the policy and the matched operation, `AlertEntityGenerated` adds one
-    entity each, `AlertUpdated` moves the status. Records of other types are ignored; an alert
-    whose raising record is not in the window is skipped (a later search holds it).
+    entity each, `AlertUpdated` moves the status. The pointers of `AlertTriggered` and
+    `AlertUpdated` name the activities, read from the records of other types when they are there.
+    An alert whose raising record is not in the window is skipped (a later search holds it).
     """
+    by_id: dict[str, JsonObject] = {}
+    submissions: dict[str, str] = {}
+    for record in records:
+        audit = record.get("auditData") or {}
+        ids = [str(i) for i in (audit.get("Id"), record.get("id")) if i]
+        by_id.update((i, record) for i in ids)
+        if record.get("operation") == "UserSubmission" and audit.get("SubmissionId") and ids:
+            submissions[str(audit["SubmissionId"])] = ids[0]
     grouped: dict[str, list[JsonObject]] = {}
     for record in records:
         audit = record.get("auditData") or {}
         alert_id = str(audit.get("AlertId") or "")
         if alert_id and record.get("operation") in ALERT_OPERATIONS:
             grouped.setdefault(alert_id, []).append(record)
-    alerts = [a for a in (_alert(alert_id, rs) for alert_id, rs in grouped.items()) if a]
+    alerts = [
+        a
+        for a in (_alert(alert_id, rs, by_id, submissions) for alert_id, rs in grouped.items())
+        if a
+    ]
     return tuple(sorted(alerts, key=lambda a: (a.created, a.alert_id)))
 
 
-def _alert(alert_id: str, records: list[JsonObject]) -> AlertPolicyAlert | None:
+def _alert(
+    alert_id: str,
+    records: list[JsonObject],
+    by_id: dict[str, JsonObject],
+    submissions: dict[str, str],
+) -> AlertPolicyAlert | None:
     ordered = sorted(records, key=lambda r: str(r.get("createdDateTime", "")))
     raised = next((r for r in ordered if r.get("operation") == "AlertTriggered"), None)
     if raised is None:
@@ -357,7 +427,66 @@ def _alert(alert_id: str, records: list[JsonObject]) -> AlertPolicyAlert | None:
         activity_time=min(exact) if exact else _text(data.get("ts")),
         entities=entities,
         data=data,
+        activities=_activities(ordered, entities, by_id, submissions),
     )
+
+
+def _activities(
+    ordered: list[JsonObject],
+    entities: tuple[AlertEntity, ...],
+    by_id: dict[str, JsonObject],
+    submissions: dict[str, str],
+) -> tuple[AlertActivity, ...]:
+    """One activity per audit record the alert's pointers name; the raising pointer's comes first.
+
+    A user report's `AlertTriggered` points to its entity's submission entry (`sid`), which is no
+    audit record; a later `AlertUpdated` points to the `UserSubmission` record. The entry stands for
+    the `UserSubmission` record whose `SubmissionId` the entity names (`etps`), when the search
+    returned it (the record carries no message id to match on). Until a record is named the raising
+    activity stays open, and the next pointer fills it rather than count as a repeat: the answer
+    does not change as records become searchable.
+    """
+    entries = {
+        str(e.data["sid"]): _submission_id(e.data) for e in entities if _text(e.data.get("sid"))
+    }
+    found: dict[str, AlertActivity] = {}
+    raising: str | None = None
+    for record in ordered:
+        operation = record.get("operation")
+        if operation not in ("AlertTriggered", "AlertUpdated"):
+            continue
+        noted = str(record.get("createdDateTime", ""))
+        if operation == "AlertTriggered" and raising is None:
+            raising = noted
+        data = _decoded((record.get("auditData") or {}).get("Data"))
+        pointer = _text(data.get("reid"))
+        if pointer in entries:
+            pointer = submissions.get(entries[pointer] or "")
+        if pointer is None or pointer in found:
+            continue
+        target = (by_id.get(pointer) or {}).get("auditData")
+        repeat = bool(found) or raising is None
+        found[pointer] = AlertActivity(
+            record_id=pointer,
+            repeat=repeat,
+            record_type=_number(data.get("rtp")) or _number((target or {}).get("RecordType")),
+            noted=noted if repeat else raising or noted,
+            record=target,
+        )
+    return tuple(found.values())
+
+
+def _submission_id(data: JsonObject) -> str | None:
+    """The submission an entity names in `etps` ("SubmissionId:<id>")."""
+    kind, _, value = str(data.get("etps", "")).partition(":")
+    return value if kind == "SubmissionId" and value else None
+
+
+def _number(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _decoded(value: Any) -> JsonObject:

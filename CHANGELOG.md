@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+**Fixed**
+- `alert_policy_alerts` no longer loses a repeat activity, nor points a user report at a record
+  that does not exist (#22). On Defender for Office 365 Plan 1 a second activity matching a policy
+  within its 15-minute window updates the existing alert instead of raising one, and the only trace
+  of it is the `AlertUpdated` record's pointer to the new audit record; the alert kept only its
+  first. A user report's `AlertTriggered` points to the entity's submission entry, not to an audit
+  record. `AlertPolicyAlert.activities` now lists every activity the alert matched, one per audit
+  record its `AlertTriggered` and `AlertUpdated` records point to: the raising one first, then the
+  repeats (`repeat=True`), each with the time of its pointer and the record itself when the search
+  returned it. A user report's first pointer stands for the `UserSubmission` record whose
+  `SubmissionId` its entity names, so a report has one raising activity whichever of its records
+  are searchable yet, and never a false repeat. The search also asks for the record types those
+  pointers name (`azureActiveDirectory`, `exchangeAdmin`, `mailSubmission`), so an Exchange admin
+  alert's activity, with the mailbox and the grantee, arrives in the same search;
+  `activity_types=()` searches the alert records alone. Mailbox-item and file activity
+  (`exchangeItem`, SharePoint, OneDrive) is not searched, for its volume: an alert on it names the
+  record without reading it. `RECORD_LIMIT` counts records of every type and rises to 20,000. The
+  README states the measured delays (records searchable 8 to 21 minutes after the activity) and a
+  search cadence within the tenant's daily budget.
+
 **Added**
 - The Microsoft 365 unified audit log, through Microsoft Graph audit log search. Four read tools
   (`audit_start_search`, `audit_get_search`, `audit_list_search_records`, `audit_list_searches`)

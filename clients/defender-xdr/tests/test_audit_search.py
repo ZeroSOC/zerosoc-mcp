@@ -10,6 +10,7 @@ import httpx
 import pytest
 from defender_fakes import Script
 from zerosoc_defender_xdr.audit_search import (
+    ACTIVITY_RECORD_TYPES,
     ALERT_RECORD_TYPE,
     AuditingDisabledError,
     fold_alert_records,
@@ -22,6 +23,18 @@ QUERIES = f"{G}/security/auditLog/queries"
 RECORDS: list[dict[str, Any]] = json.loads(
     (Path(__file__).parent / "fixtures" / "audit_alert_records.json").read_text()
 )["value"]
+ACTIVITY: list[dict[str, Any]] = json.loads(
+    (Path(__file__).parent / "fixtures" / "audit_alert_activity_records.json").read_text()
+)["value"]
+REPEAT, REPORT = "a7a7a7a7-0000-0000-0000-000000000001", "c9c9c9c9-0000-0000-0000-000000000002"
+
+
+def _alert(records: list[dict[str, Any]], alert_id: str) -> Any:
+    return next(a for a in fold_alert_records(records) if a.alert_id == alert_id)
+
+
+def _without(*ids: str) -> list[dict[str, Any]]:
+    return [r for r in ACTIVITY if r["id"] not in ids]
 
 
 def test_records_fold_into_one_alert_per_alert_id_oldest_first() -> None:
@@ -61,6 +74,124 @@ def test_an_alert_whose_raising_record_is_outside_the_window_waits_for_a_later_s
     assert "f6f6f6f6-0000-0000-0000-000000000004" not in names
 
 
+def test_a_repeat_activity_folded_into_the_alert_is_an_activity_of_its_own() -> None:
+    alert = _alert(ACTIVITY, REPEAT)
+
+    assert [(a.record_id, a.record_type, a.noted) for a in alert.activities] == [
+        ("30000000-0000-0000-0000-000000000001", 1, "2026-10-05T15:33:15Z"),
+        ("30000000-0000-0000-0000-000000000004", 1, "2026-10-05T15:39:27Z"),
+    ]
+    assert [a.repeat for a in alert.activities] == [False, True]
+    assert [a.operation for a in alert.activities] == ["Add-MailboxPermission"] * 2
+    assert [a.record and a.record["ObjectId"] for a in alert.activities] == ["finance", "payroll"]
+    assert alert.status == "Investigating"
+
+
+def test_an_activity_whose_record_the_search_did_not_return_is_kept_unread() -> None:
+    alert = _alert(_without("30000000-0000-0000-0000-000000000004"), REPEAT)
+
+    (_, later) = alert.activities
+    assert (later.record_id, later.record, later.operation) == (
+        "30000000-0000-0000-0000-000000000004",
+        None,
+        None,
+    )
+
+
+def test_a_user_report_points_to_its_submission_record_not_to_the_entity_sid() -> None:
+    alert = _alert(ACTIVITY, REPORT)
+
+    (report,) = alert.activities
+    assert (report.record_id, report.record_type, report.noted, report.operation) == (
+        "40000000-0000-0000-0000-000000000003",
+        29,
+        "2026-10-05T16:19:16Z",
+        "UserSubmission",
+    )
+
+
+def test_a_user_report_finds_its_submission_record_before_the_update_points_to_it() -> None:
+    alert = _alert(_without("40000000-0000-0000-0000-000000000004"), REPORT)
+
+    assert [(a.record_id, a.noted) for a in alert.activities] == [
+        ("40000000-0000-0000-0000-000000000003", "2026-10-05T16:19:16Z")
+    ]
+
+
+def test_a_user_report_whose_submission_record_is_not_searchable_yet_has_no_activity() -> None:
+    first = _without("40000000-0000-0000-0000-000000000003", "40000000-0000-0000-0000-000000000004")
+
+    assert _alert(first, REPORT).activities == ()
+
+
+def test_a_user_report_named_only_by_its_update_is_still_the_raising_activity() -> None:
+    alert = _alert(_without("40000000-0000-0000-0000-000000000003"), REPORT)
+
+    (report,) = alert.activities
+    assert (report.record_id, report.repeat, report.noted, report.record) == (
+        "40000000-0000-0000-0000-000000000003",
+        False,
+        "2026-10-05T16:19:16Z",
+        None,
+    )
+
+
+def test_a_user_report_reads_the_same_from_one_search_to_the_next() -> None:
+    late = ("40000000-0000-0000-0000-000000000003", "40000000-0000-0000-0000-000000000004")
+    seen = [
+        [(a.record_id, a.repeat, a.noted) for a in _alert(_without(*gone), REPORT).activities]
+        for gone in (late[1:], late[:1], ())
+    ]
+
+    assert seen == [[("40000000-0000-0000-0000-000000000003", False, "2026-10-05T16:19:16Z")]] * 3
+
+
+def test_each_report_entity_names_its_own_submission() -> None:
+    entity = next(r for r in ACTIVITY if r["id"] == "40000000-0000-0000-0000-000000000002")
+    submission = next(r for r in ACTIVITY if r["id"] == "40000000-0000-0000-0000-000000000003")
+    other_entity = json.loads(json.dumps(entity))
+    other_entity["id"] = other_entity["auditData"]["Id"] = "40000000-0000-0000-0000-000000000012"
+    other_entity["auditData"]["Data"] = (
+        entity["auditData"]["Data"]
+        .replace("5a5a5a5a-0000", "5a5a5a5a-1111")
+        .replace("5b5b5b5b-0000", "5b5b5b5b-1111")
+    )
+    other_submission = json.loads(json.dumps(submission))
+    other_submission["id"] = "40000000-0000-0000-0000-000000000013"
+    other_submission["auditData"]["Id"] = "40000000-0000-0000-0000-000000000013"
+    other_submission["auditData"]["SubmissionId"] = "5b5b5b5b-1111-0000-0000-000000000009"
+    records = [other_submission, other_entity, *_without("40000000-0000-0000-0000-000000000004")]
+
+    (report,) = _alert(records, REPORT).activities
+
+    assert report.record_id == "40000000-0000-0000-0000-000000000003"
+
+
+def test_a_pointer_resolves_on_the_audit_id_even_when_the_listing_id_differs() -> None:
+    records = json.loads(json.dumps(ACTIVITY))
+    records[0]["id"] = "listing-id-1"
+
+    first = _alert(records, REPEAT).activities[0]
+
+    assert (first.record_id, first.operation) == (
+        "30000000-0000-0000-0000-000000000001",
+        "Add-MailboxPermission",
+    )
+
+
+def test_activities_are_part_of_the_alert_as_json() -> None:
+    alert = _alert(_without("30000000-0000-0000-0000-000000000004"), REPEAT)
+
+    assert alert.as_json()["activities"][1] == {
+        "recordId": "30000000-0000-0000-0000-000000000004",
+        "repeat": True,
+        "recordType": 1,
+        "noted": "2026-10-05T15:39:27Z",
+        "operation": None,
+        "record": None,
+    }
+
+
 def test_unreadable_data_is_kept_not_dropped() -> None:
     raised = {**RECORDS[4], "operation": "AlertTriggered"}
 
@@ -96,7 +227,7 @@ async def test_the_data_plane_searches_the_alert_record_type_waits_and_reads_eve
         "displayName": "zerosoc alert-policy intake",
         "filterStartDateTime": "2026-09-30T07:00:00Z",
         "filterEndDateTime": "2026-09-30T09:00:00Z",
-        "recordTypeFilters": [ALERT_RECORD_TYPE],
+        "recordTypeFilters": [ALERT_RECORD_TYPE, *ACTIVITY_RECORD_TYPES],
     }
     assert found.query_id == "q-1"
     assert [a.alert_id for a in found.alerts] == [
@@ -105,6 +236,21 @@ async def test_the_data_plane_searches_the_alert_record_type_waits_and_reads_eve
     ]
     assert found.truncated is False
     assert found.completed >= found.requested
+
+
+async def test_the_data_plane_can_search_the_alert_records_alone(
+    client: DefenderClient, script: Script
+) -> None:
+    script.json("POST", QUERIES, {"id": "q-4", "status": "succeeded"})
+    script.json("GET", f"{QUERIES}/q-4/records", {"value": ACTIVITY})
+
+    found = await client.alert_policy_alerts(
+        "2026-10-05T15:00:00Z", "2026-10-05T17:00:00Z", activity_types=()
+    )
+
+    (created,) = script.sent("POST", "/auditLog/queries")
+    assert Script.body(created)["recordTypeFilters"] == [ALERT_RECORD_TYPE]
+    assert [a.alert_id for a in found.alerts] == [REPEAT, REPORT]
 
 
 async def test_a_tenant_without_auditing_is_named_as_such(
