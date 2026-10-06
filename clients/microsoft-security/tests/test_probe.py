@@ -53,6 +53,7 @@ def tenant(
     allow_actions: bool = True,
     machines_status: int = 200,
     users_status: int = 200,
+    audit_search_error: dict[str, Any] | None = None,
     entitlements: frozenset[str] | None = None,
 ) -> MicrosoftSecurityClient:
     script = Script()
@@ -93,7 +94,12 @@ def tenant(
         sign_ins_status,
     )
     script.json("GET", f"{G}/auditLogs/directoryAudits", {"value": []})
-    script.json("GET", f"{G}/security/auditLog/queries", {"value": []})
+    script.json(
+        "GET",
+        f"{G}/security/auditLog/queries",
+        {"error": audit_search_error} if audit_search_error else {"value": []},
+        400 if audit_search_error else 200,
+    )
     script.json(
         "GET",
         f"{G}/users",
@@ -433,6 +439,14 @@ async def test_two_callers_at_once_share_one_probe() -> None:
 
 # --- refusals seen on test tenants ----------------------------------------------------------------
 
+AUDITING_OFF = {
+    "code": "UnknownError",
+    "message": json.dumps(
+        {"Status": "AuditingDisabledTenant", "TotalItemCount": 0, "ErrorMessage": None}
+    ),
+}
+"""How the audit log search answers a tenant whose unified audit logging is off (2026-10-06)."""
+
 LIVE_REFUSALS = [
     (
         403,
@@ -447,6 +461,7 @@ LIVE_REFUSALS = [
         "unlicensed",
     ),
     (401, "Unauthorized", "Unauthorized request - reason of failure: No Tvm license", "unlicensed"),
+    (400, "UnknownError", AUDITING_OFF["message"], "unlicensed"),
     (
         403,
         "Authentication_MSGraphPermissionMissing",
@@ -483,6 +498,23 @@ async def test_an_unlicensed_service_is_named_as_such_in_the_binding() -> None:
         in binding["data_source_notes"]["Identity provider sign-in logs"]
     )
     assert "not licensed" in binding["probe"]["unbound"]["telemetry.identity"]
+
+
+async def test_a_tenant_with_auditing_off_is_described_and_the_probe_completes() -> None:
+    """Auditing off is the tenant's setting: no permission and no retry lifts it. A probe that
+    read it as an outage never completed, and a caller that waits for a complete probe never
+    started reading the tenant's incidents."""
+    client = defender_for_business(audit_search_error=AUDITING_OFF)
+    binding = await client.get_capabilities()
+
+    check = binding["probe"]["checks"]["api:graph.audit_search"]
+    assert check["status"] == "unlicensed"
+    assert "AuditingDisabledTenant" in check["detail"]
+    assert binding["probe"]["checks"]["api:graph.incidents"]["status"] == "available"
+
+    from zerosoc_microsoft_security.probe import run_probe
+
+    assert (await run_probe(defender_for_business(audit_search_error=AUDITING_OFF))).complete
 
 
 # --- an entitlement is declared, never read out of an empty table ---------------------------------
