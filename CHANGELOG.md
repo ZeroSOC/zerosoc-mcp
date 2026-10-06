@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+**Fixed**
+- The capability probe now completes on a tenant whose unified audit logging is off. The audit log
+  search answers such a tenant with an HTTP 400 (`AuditingDisabledTenant`), which the probe read as
+  an outage, so it never completed. A caller that waits for a complete probe before reading the
+  tenant never started reading its incidents. The check is now `unlicensed`, the status of a
+  refusal that only the tenant's admin can lift, and the binding says that unified audit logging is
+  off.
+
 ## microsoft-security 0.4.0 (2026-10-05)
 
 **Changed**

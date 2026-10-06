@@ -49,6 +49,9 @@ Status = Literal[
 _UNLICENSED = re.compile(r"licen[cs]e|account mode is inactive", re.IGNORECASE)
 """How the services word a refusal that no permission would lift: the tenant has not bought, or no
 longer runs, the service behind the API."""
+_AUDITING_OFF = re.compile(r"auditing\s*disabled", re.IGNORECASE)
+"""How the audit log search answers a tenant whose unified audit logging is off. It comes as an
+HTTP 400, yet only the tenant's admin lifts it, in Purview."""
 API_CHECKS: dict[str, str] = {
     "graph.incidents": "list_incidents",
     "graph.alerts": "list_alerts",
@@ -175,6 +178,8 @@ def _failed(error: DefenderApiError) -> Check:
     detail = f"{error.code}: {error.message}" if error.code else error.message
     if error.status in (401, 403):
         return Check("unlicensed" if _UNLICENSED.search(error.message) else "forbidden", detail)
+    if _AUDITING_OFF.search(f"{error.code} {error.message}"):
+        return Check("unlicensed", detail)
     if error.status == 400 and "failed to resolve" in error.message.lower():
         return Check("not_exposed", detail)
     return Check("error", f"HTTP {error.status} {detail}")
@@ -322,6 +327,8 @@ def _why(check_id: str, check: Check) -> str:
         }.get(check.status, f"{subject}: {check.detail}")
     if kind == "role":
         return check.detail
+    if check.status == "unlicensed" and _AUDITING_OFF.search(check.detail):
+        return f"{subject} is unavailable: unified audit logging is off in this tenant"
     if check.status == "unlicensed":
         return f"{subject} is not licensed in this tenant ({check.detail})"
     return f"{subject} refused the call ({check.detail})" if check.detail else f"{subject} failed"
