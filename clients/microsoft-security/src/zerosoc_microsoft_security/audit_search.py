@@ -45,6 +45,9 @@ ACTIVITY_SLACK_SECONDS = 300
 """How far either side of an alert's activity time the activity behind it is looked for."""
 ACTIVITY_LIMIT = 20
 RECORD_LIMIT = 20000
+SAME_REQUEST_LIMIT = 100
+"""The other records of an activity's request kept on it at most, oldest first:
+`AlertActivity.same_request_count` says how many the search held."""
 """Records read from one search at most, of every type searched (the activity records count too);
 `AlertSearch.truncated` says when the limit was hit, and an alert past it is not returned."""
 
@@ -93,6 +96,14 @@ class AlertActivity:
     record: JsonObject | None
     """The activity's audit record (`auditData`) when the same search returned it, else None: it
     may not be searchable yet, or fall outside the window or the record types searched."""
+    same_request: tuple[JsonObject, ...] = ()
+    """The other records (`auditData`) of the same type and `RequestId` the same search returned,
+    oldest first, at most `SAME_REQUEST_LIMIT`. Every command of one job carries its request: a
+    service provisioning an organization runs dozens under one, and this is what tells one step of
+    it from a lone change. Empty when the record names no request or was not returned; a job the
+    search window cuts is cut here too."""
+    same_request_count: int = 0
+    """How many such records the search held, kept or not."""
 
     @property
     def operation(self) -> str | None:
@@ -106,6 +117,8 @@ class AlertActivity:
             "noted": self.noted,
             "operation": self.operation,
             "record": self.record,
+            "sameRequest": list(self.same_request),
+            "sameRequestCount": self.same_request_count,
         }
 
 
@@ -369,10 +382,13 @@ def fold_alert_records(records: list[JsonObject]) -> tuple[AlertPolicyAlert, ...
     """
     by_id: dict[str, JsonObject] = {}
     submissions: dict[str, str] = {}
+    jobs: dict[tuple[Any, str], list[JsonObject]] = {}
     for record in records:
         audit = record.get("auditData") or {}
         ids = [str(i) for i in (audit.get("Id"), record.get("id")) if i]
         by_id.update((i, record) for i in ids)
+        if _text(audit.get("RequestId")):
+            jobs.setdefault(_request(audit), []).append(audit)
         if record.get("operation") == "UserSubmission" and audit.get("SubmissionId") and ids:
             submissions[str(audit["SubmissionId"])] = ids[0]
     grouped: dict[str, list[JsonObject]] = {}
@@ -383,7 +399,9 @@ def fold_alert_records(records: list[JsonObject]) -> tuple[AlertPolicyAlert, ...
             grouped.setdefault(alert_id, []).append(record)
     alerts = [
         a
-        for a in (_alert(alert_id, rs, by_id, submissions) for alert_id, rs in grouped.items())
+        for a in (
+            _alert(alert_id, rs, by_id, submissions, jobs) for alert_id, rs in grouped.items()
+        )
         if a
     ]
     return tuple(sorted(alerts, key=lambda a: (a.created, a.alert_id)))
@@ -394,6 +412,7 @@ def _alert(
     records: list[JsonObject],
     by_id: dict[str, JsonObject],
     submissions: dict[str, str],
+    jobs: dict[tuple[Any, str], list[JsonObject]],
 ) -> AlertPolicyAlert | None:
     ordered = sorted(records, key=lambda r: str(r.get("createdDateTime", "")))
     raised = next((r for r in ordered if r.get("operation") == "AlertTriggered"), None)
@@ -427,7 +446,7 @@ def _alert(
         activity_time=min(exact) if exact else _text(data.get("ts")),
         entities=entities,
         data=data,
-        activities=_activities(ordered, entities, by_id, submissions),
+        activities=_activities(ordered, entities, by_id, submissions, jobs),
     )
 
 
@@ -436,6 +455,7 @@ def _activities(
     entities: tuple[AlertEntity, ...],
     by_id: dict[str, JsonObject],
     submissions: dict[str, str],
+    jobs: dict[tuple[Any, str], list[JsonObject]],
 ) -> tuple[AlertActivity, ...]:
     """One activity per audit record the alert's pointers name; the raising pointer's comes first.
 
@@ -465,6 +485,7 @@ def _activities(
         if pointer is None or pointer in found:
             continue
         target = (by_id.get(pointer) or {}).get("auditData")
+        job = _same_request(target, jobs)
         repeat = bool(found) or raising is None
         found[pointer] = AlertActivity(
             record_id=pointer,
@@ -472,8 +493,25 @@ def _activities(
             record_type=_number(data.get("rtp")) or _number((target or {}).get("RecordType")),
             noted=noted if repeat else raising or noted,
             record=target,
+            same_request=tuple(job[:SAME_REQUEST_LIMIT]),
+            same_request_count=len(job),
         )
     return tuple(found.values())
+
+
+def _request(audit: JsonObject) -> tuple[Any, str]:
+    return (audit.get("RecordType"), str(audit.get("RequestId")))
+
+
+def _same_request(
+    target: JsonObject | None, jobs: dict[tuple[Any, str], list[JsonObject]]
+) -> list[JsonObject]:
+    """The other records of the target's request, oldest first; none when it names no request."""
+    if not target or not _text(target.get("RequestId")):
+        return []
+    own = target.get("Id")
+    job = [r for r in jobs.get(_request(target), []) if r.get("Id") != own]
+    return sorted(job, key=lambda r: (str(r.get("CreationTime", "")), str(r.get("Id", ""))))
 
 
 def _submission_id(data: JsonObject) -> str | None:

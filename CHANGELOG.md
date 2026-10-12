@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+**Added**
+- `AlertActivity.same_request` and `same_request_count` (#30): the other records of the activity's
+  request that the same alert search returned, oldest first, at most `SAME_REQUEST_LIMIT` (100).
+  Every command of one Exchange job carries its `RequestId`; a service provisioning an
+  organization runs dozens under one. An alert on one step of such a job (a FullAccess grant to a
+  system mailbox, an audit configuration write) reads very differently with the rest of the job
+  beside it, and the alert search already held those records: no second search is needed. Both
+  fields are in `as_json` (`sameRequest`, `sameRequestCount`).
+
 **Fixed**
 - The capability probe now completes on a tenant whose unified audit logging is off. The audit log
   search answers such a tenant with an HTTP 400 (`AuditingDisabledTenant`), which the probe read as
