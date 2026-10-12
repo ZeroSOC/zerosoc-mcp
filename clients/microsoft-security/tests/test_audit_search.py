@@ -12,6 +12,7 @@ from defender_fakes import Script
 from zerosoc_microsoft_security.audit_search import (
     ACTIVITY_RECORD_TYPES,
     ALERT_RECORD_TYPE,
+    SAME_REQUEST_LIMIT,
     AuditingDisabledError,
     fold_alert_records,
 )
@@ -189,6 +190,8 @@ def test_activities_are_part_of_the_alert_as_json() -> None:
         "noted": "2026-10-05T15:39:27Z",
         "operation": None,
         "record": None,
+        "sameRequest": [],
+        "sameRequestCount": 0,
     }
 
 
@@ -337,3 +340,110 @@ async def test_the_activity_behind_any_other_workload_is_not_read_here(
 
     assert await client.activity_behind(rule) == []
     assert script.requests == []
+
+
+def _step(record_id: str, operation: str, request: str | None, at: str) -> dict[str, Any]:
+    """An Exchange admin record of one step of a job, as the search returns it."""
+    audit = {
+        "Id": record_id,
+        "CreationTime": at,
+        "RecordType": 1,
+        "Operation": operation,
+        "UserId": "NT SERVICE\\ExampleService",
+        "ResultStatus": "True",
+        **({"RequestId": request} if request else {}),
+    }
+    return {
+        "id": record_id,
+        "createdDateTime": f"{at}Z",
+        "auditLogRecordType": "ExchangeAdmin",
+        "operation": operation,
+        "auditData": audit,
+    }
+
+
+def _in_request(request: str, *ids: str) -> list[dict[str, Any]]:
+    """The fixture with its activity records made steps of one request."""
+    out = []
+    for record in ACTIVITY:
+        if record["id"] in ids:
+            record = {**record, "auditData": {**record["auditData"], "RequestId": request}}
+        out.append(record)
+    return out
+
+
+RAISING = "30000000-0000-0000-0000-000000000001"
+
+
+def test_an_activity_carries_the_other_records_of_its_request_oldest_first() -> None:
+    """A job (a service provisioning an organization runs dozens of commands under one request)
+    is what tells one step of it from a lone change. The search already returned its records."""
+    records = [
+        *_in_request("job-1", RAISING),
+        _step(
+            "50000000-0000-0000-0000-000000000002",
+            "Install-ResourceConfig",
+            "job-1",
+            "2026-10-05T15:30:40",
+        ),
+        _step(
+            "50000000-0000-0000-0000-000000000001",
+            "Set-TenantObjectVersion",
+            "job-1",
+            "2026-10-05T15:30:20",
+        ),
+        _step(
+            "50000000-0000-0000-0000-000000000003", "Set-Mailbox", "job-2", "2026-10-05T15:30:41"
+        ),
+        _step("50000000-0000-0000-0000-000000000004", "Set-Mailbox", None, "2026-10-05T15:30:42"),
+    ]
+
+    first, _ = _alert(records, REPEAT).activities
+
+    assert [r["Operation"] for r in first.same_request] == [
+        "Set-TenantObjectVersion",
+        "Install-ResourceConfig",
+    ], "the job's other steps, and nothing of another request or of none"
+    assert first.same_request_count == 2
+
+
+def test_a_record_with_no_request_or_not_returned_has_no_job() -> None:
+    first, later = _alert(_without("30000000-0000-0000-0000-000000000004"), REPEAT).activities
+
+    assert (first.same_request, first.same_request_count) == ((), 0)
+    assert (later.record, later.same_request, later.same_request_count) == (None, (), 0)
+
+
+def test_a_long_job_is_bounded_and_says_how_many_it_had() -> None:
+    steps = [
+        _step(
+            f"60000000-0000-0000-0000-{n:012d}",
+            "Set-Mailbox",
+            "job-1",
+            f"2026-10-05T15:{n // 60:02d}:{n % 60:02d}",
+        )
+        for n in range(SAME_REQUEST_LIMIT + 5)
+    ]
+
+    first, _ = _alert([*_in_request("job-1", RAISING), *steps], REPEAT).activities
+
+    assert len(first.same_request) == SAME_REQUEST_LIMIT
+    assert first.same_request_count == SAME_REQUEST_LIMIT + 5
+    assert first.same_request[0]["Id"] == steps[0]["id"], "the start of the job is kept"
+
+
+def test_the_job_is_part_of_the_activity_as_json() -> None:
+    records = [
+        *_in_request("job-1", RAISING),
+        _step(
+            "50000000-0000-0000-0000-000000000001",
+            "Set-TenantObjectVersion",
+            "job-1",
+            "2026-10-05T15:30:20",
+        ),
+    ]
+
+    shown = _alert(records, REPEAT).as_json()["activities"][0]
+
+    assert [r["Operation"] for r in shown["sameRequest"]] == ["Set-TenantObjectVersion"]
+    assert shown["sameRequestCount"] == 1
