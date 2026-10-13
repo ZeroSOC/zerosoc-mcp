@@ -3,6 +3,11 @@
 ## Unreleased
 
 **Added**
+- `activity_records`: the data plane of an activity search. It searches the activity record types of
+  a window, by the people named (all where none is), waits for the search and reads every record
+  (`ActivitySearch.records`, each record's `auditData`, up to `RECORD_LIMIT`). Each search stays in
+  the tenant's search list and counts against its daily allowance, so a caller keeps its own budget.
+  `alert_policy_alerts` and it share one search-wait-read core.
 - `AlertSearch.activities`: every activity record (`auditData`) the alert search returned, of the
   types searched beside the alert records, in the order read. A caller that keeps what bears on its
   own cases (the records that name a case's entities) reads it from the same search rather than

@@ -467,3 +467,33 @@ async def test_the_data_plane_hands_back_every_activity_record_it_read(
     assert all(a.get("RecordType") != 40 for a in found.activities), (
         "the alert records are the alerts"
     )
+
+
+async def test_an_activity_search_reads_the_records_of_its_window_and_people(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """A caller asking what an account did in a past window searches for it once, within its own
+    allowance, and reads every record (ZeroSOC's investigation, ZeroSOC/zerosoc-platform-azure#170)."""
+    script.json("POST", QUERIES, {"id": "q-3", "status": "running"})
+    script.on(
+        "GET", f"{QUERIES}/q-3", httpx.Response(200, json={"id": "q-3", "status": "succeeded"})
+    )
+    script.on("GET", f"{QUERIES}/q-3/records", httpx.Response(200, json={"value": ACTIVITY}))
+
+    found = await client.activity_records(
+        "2026-10-05T14:00:00Z",
+        "2026-10-05T16:00:00Z",
+        user_principal_names=["admin@contoso.onmicrosoft.com"],
+        display_name="zerosoc case search",
+    )
+
+    (created,) = script.sent("POST", "/auditLog/queries")
+    assert Script.body(created) == {
+        "displayName": "zerosoc case search",
+        "filterStartDateTime": "2026-10-05T14:00:00Z",
+        "filterEndDateTime": "2026-10-05T16:00:00Z",
+        "recordTypeFilters": list(ACTIVITY_RECORD_TYPES),
+        "userPrincipalNameFilters": ["admin@contoso.onmicrosoft.com"],
+    }
+    assert found.query_id == "q-3" and not found.truncated
+    assert list(found.records) == [r["auditData"] for r in ACTIVITY]
