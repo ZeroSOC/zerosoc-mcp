@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## microsoft-security 0.5.1 (2026-10-13)
+
 **Added**
 - `AlertActivity.same_connection` and `same_connection_count`: the other records of the same type,
   actor, server (`OriginatingServer`) and client connection (`ClientIP` with its port) that the

@@ -12,8 +12,8 @@ Python 3.11 or later. With [uv](https://docs.astral.sh/uv/) there is nothing to 
 
 ```bash
 # from a release tag of this repository
-uvx --from "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.0#subdirectory=servers/microsoft-security" \
-    --with "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.0#subdirectory=clients/microsoft-security" \
+uvx --from "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.1#subdirectory=servers/microsoft-security" \
+    --with "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.1#subdirectory=clients/microsoft-security" \
     mcp-microsoft-security
 
 # or from a clone
@@ -33,9 +33,9 @@ The server speaks MCP over stdio and is configured by environment variables only
       "command": "uvx",
       "args": [
         "--from",
-        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.0#subdirectory=servers/microsoft-security",
+        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.1#subdirectory=servers/microsoft-security",
         "--with",
-        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.0#subdirectory=clients/microsoft-security",
+        "git+https://github.com/ZeroSOC/zerosoc-mcp@microsoft-security-v0.5.1#subdirectory=clients/microsoft-security",
         "mcp-microsoft-security"
       ],
       "env": {
