@@ -22,9 +22,16 @@ jobs:
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
+          OPENED_BY: ${{ github.event.pull_request.user.login }}
         run: |
+          # Dependabot cannot certify the DCO. Its own commits on a PR it opened
+          # are exempt; a person's commit on that PR still needs a sign-off.
+          bot='49699333+dependabot[bot]@users.noreply.github.com'
           missing=0
           for c in $(git rev-list "$BASE..$HEAD"); do
+            if [ "$OPENED_BY" = "dependabot[bot]" ] && [ "$(git log -1 --format='%ae' "$c")" = "$bot" ]; then
+              continue
+            fi
             author="$(git log -1 --format='%an <%ae>' "$c")"
             if ! git log -1 --format='%B' "$c" | grep -qiF "Signed-off-by: $author"; then
               echo "::error::$(git log -1 --format='%h %s' "$c") is not signed off by $author"
