@@ -1,6 +1,6 @@
 {
   "server": "defender-xdr",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "packages": {
     "client": "zerosoc-microsoft-security",
     "mcp_server": "zerosoc-mcp-microsoft-security"
