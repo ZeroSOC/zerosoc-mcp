@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
@@ -201,6 +202,21 @@ class AlertSearch:
     alerts."""
 
 
+@dataclass(frozen=True)
+class ActivitySearch:
+    """One completed search for activity records."""
+
+    query_id: str
+    start: str
+    end: str
+    requested: float
+    completed: float
+    records: tuple[JsonObject, ...]
+    """Each record's `auditData`, in the order read, up to `RECORD_LIMIT`."""
+    truncated: bool
+    """True when the search held more records than `RECORD_LIMIT`: some are missing."""
+
+
 class AuditSearch(Surface):
     @operation(tool="audit_list_searches", api="graph", permissions=_PERMISSIONS)
     async def list_audit_searches(
@@ -297,17 +313,81 @@ class AuditSearch(Surface):
         Raises `AuditingDisabledError` when the tenant does not record the audit log, and
         `TimeoutError` when the search has not completed within ``timeout_seconds``.
         """
-        requested = time.time()
-        created = await self._audit_call(
-            "POST",
-            _PATH,
-            json={
+        query_id, requested, completed, records = await self._searched(
+            {
                 "displayName": display_name,
                 "filterStartDateTime": _utc(start, "start"),
                 "filterEndDateTime": _utc(end, "end"),
                 "recordTypeFilters": [ALERT_RECORD_TYPE, *activity_types],
             },
+            poll_seconds=poll_seconds,
+            timeout_seconds=timeout_seconds,
         )
+        return AlertSearch(
+            query_id=query_id,
+            start=start,
+            end=end,
+            requested=requested,
+            completed=completed,
+            alerts=fold_alert_records(records[:RECORD_LIMIT]),
+            truncated=len(records) > RECORD_LIMIT,
+            activities=tuple(
+                audit
+                for r in records[:RECORD_LIMIT]
+                if (audit := r.get("auditData") or {})
+                and _number(audit.get("RecordType")) != ALERT_RECORD_NUMBER
+            ),
+        )
+
+    async def activity_records(
+        self,
+        start: str,
+        end: str,
+        *,
+        record_types: tuple[str, ...] = ACTIVITY_RECORD_TYPES,
+        user_principal_names: Sequence[str] = (),
+        display_name: str = "zerosoc activity search",
+        poll_seconds: float = POLL_SECONDS,
+        timeout_seconds: float = TIMEOUT_SECONDS,
+    ) -> ActivitySearch:
+        """**The data plane**: the activity records of a window, by the people named (all where none
+        is), waited for and read whole up to `RECORD_LIMIT`. Each search stays in the tenant's list
+        and counts against its daily allowance: a caller keeps its own budget.
+
+        Raises `AuditingDisabledError` when the tenant does not record the audit log, and
+        `TimeoutError` when the search has not completed within ``timeout_seconds``.
+        """
+        body: JsonObject = {
+            "displayName": display_name,
+            "filterStartDateTime": _utc(start, "start"),
+            "filterEndDateTime": _utc(end, "end"),
+            "recordTypeFilters": list(record_types),
+        }
+        if user_principal_names:
+            body["userPrincipalNameFilters"] = list(user_principal_names)
+        query_id, requested, completed, records = await self._searched(
+            body, poll_seconds=poll_seconds, timeout_seconds=timeout_seconds
+        )
+        return ActivitySearch(
+            query_id=query_id,
+            start=start,
+            end=end,
+            requested=requested,
+            completed=completed,
+            records=tuple(
+                audit for r in records[:RECORD_LIMIT] if (audit := r.get("auditData") or {})
+            ),
+            truncated=len(records) > RECORD_LIMIT,
+        )
+
+    async def _searched(
+        self, body: JsonObject, *, poll_seconds: float, timeout_seconds: float
+    ) -> tuple[str, float, float, list[JsonObject]]:
+        """Start a search, wait for it, and read every record of it (one more than the limit, so a
+        caller can tell a full search from a cut one): its id, when it was asked, when it was seen
+        done, and its records."""
+        requested = time.time()
+        created = await self._audit_call("POST", _PATH, json=body)
         query_id = str(created.get("id", ""))
         status = str(created.get("status", ""))
         while status in RUNNING:
@@ -325,21 +405,7 @@ class AuditSearch(Surface):
         records = await self._api.collect(
             GRAPH, f"{_PATH}/{seg(query_id)}/records", limit=RECORD_LIMIT + 1
         )
-        return AlertSearch(
-            query_id=query_id,
-            start=start,
-            end=end,
-            requested=requested,
-            completed=completed,
-            alerts=fold_alert_records(records[:RECORD_LIMIT]),
-            truncated=len(records) > RECORD_LIMIT,
-            activities=tuple(
-                audit
-                for r in records[:RECORD_LIMIT]
-                if (audit := r.get("auditData") or {})
-                and _number(audit.get("RecordType")) != ALERT_RECORD_NUMBER
-            ),
-        )
+        return query_id, requested, completed, records
 
     async def activity_behind(self, alert: AlertPolicyAlert) -> list[JsonObject]:
         """**The data plane**: the audited activity an alert matched, read where it can be read now.
