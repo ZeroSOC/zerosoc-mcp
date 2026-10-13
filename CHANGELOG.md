@@ -3,6 +3,13 @@
 ## Unreleased
 
 **Added**
+- `AlertSearch.activities`: every activity record (`auditData`) the alert search returned, of the
+  types searched beside the alert records, in the order read. A caller that keeps what bears on its
+  own cases (the records that name a case's entities) reads it from the same search rather than
+  starting another, which would take minutes and count against the tenant's search budget. The
+  alert records are not included: they are the alerts.
+
+**Added**
 - `AlertActivity.same_request` and `same_request_count` (#30): the other records of the activity's
   request that the same alert search returned, oldest first, at most `SAME_REQUEST_LIMIT` (100).
   Every command of one Exchange job carries its `RequestId`; a service provisioning an
