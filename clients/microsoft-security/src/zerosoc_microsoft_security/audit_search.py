@@ -33,6 +33,8 @@ _PATH = "/security/auditLog/queries"
 
 ALERT_RECORD_TYPE = "securityComplianceAlerts"
 """Record type 40: what an Office 365 alert policy writes when it raises, updates or names an alert."""
+ALERT_RECORD_NUMBER = 40
+"""The same record type as its number, which a record's `auditData.RecordType` carries."""
 ALERT_OPERATIONS = ("AlertTriggered", "AlertEntityGenerated", "AlertUpdated")
 ACTIVITY_RECORD_TYPES = ("azureActiveDirectory", "exchangeAdmin", "mailSubmission")
 """The record types an alert's pointer (`Data.reid`, `Data.rtp`) names for the policies an alert
@@ -192,6 +194,11 @@ class AlertSearch:
     alerts: tuple[AlertPolicyAlert, ...]
     truncated: bool
     """True when the search held more records than `RECORD_LIMIT`: some alerts may be missing."""
+    activities: tuple[JsonObject, ...] = ()
+    """Every activity record (`auditData`) the search returned, of the types searched beside the
+    alert records, in the order read: a caller that keeps what bears on its own cases reads it
+    from this search rather than starting another. The alert records are not here: they are the
+    alerts."""
 
 
 class AuditSearch(Surface):
@@ -326,6 +333,12 @@ class AuditSearch(Surface):
             completed=completed,
             alerts=fold_alert_records(records[:RECORD_LIMIT]),
             truncated=len(records) > RECORD_LIMIT,
+            activities=tuple(
+                audit
+                for r in records[:RECORD_LIMIT]
+                if (audit := r.get("auditData") or {})
+                and _number(audit.get("RecordType")) != ALERT_RECORD_NUMBER
+            ),
         )
 
     async def activity_behind(self, alert: AlertPolicyAlert) -> list[JsonObject]:

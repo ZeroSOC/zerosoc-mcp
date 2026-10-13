@@ -447,3 +447,23 @@ def test_the_job_is_part_of_the_activity_as_json() -> None:
 
     assert [r["Operation"] for r in shown["sameRequest"]] == ["Set-TenantObjectVersion"]
     assert shown["sameRequestCount"] == 1
+
+
+async def test_the_data_plane_hands_back_every_activity_record_it_read(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """A caller that keeps what bears on its open cases reads it from the same search, with no
+    second one (ZeroSOC's intake keeps the records that name an open Case's entities)."""
+    script.json("POST", QUERIES, {"id": "q-2", "status": "succeeded"})
+    script.on(
+        "GET", f"{QUERIES}/q-2", httpx.Response(200, json={"id": "q-2", "status": "succeeded"})
+    )
+    script.on("GET", f"{QUERIES}/q-2/records", httpx.Response(200, json={"value": ACTIVITY}))
+
+    found = await client.alert_policy_alerts("2026-10-05T15:00:00Z", "2026-10-05T16:00:00Z")
+
+    expected = [r["auditData"] for r in ACTIVITY if r["auditData"].get("RecordType") != 40]
+    assert list(found.activities) == expected
+    assert all(a.get("RecordType") != 40 for a in found.activities), (
+        "the alert records are the alerts"
+    )
