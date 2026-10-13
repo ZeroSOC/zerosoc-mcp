@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## microsoft-security 0.5.0 (2026-10-13)
+
 **Added**
 - `activity_records`: the data plane of an activity search. It searches the activity record types of
   a window, by the people named (all where none is), waits for the search and reads every record
@@ -13,8 +15,6 @@
   own cases (the records that name a case's entities) reads it from the same search rather than
   starting another, which would take minutes and count against the tenant's search budget. The
   alert records are not included: they are the alerts.
-
-**Added**
 - `AlertActivity.same_request` and `same_request_count` (#30): the other records of the activity's
   request that the same alert search returned, oldest first, at most `SAME_REQUEST_LIMIT` (100).
   Every command of one Exchange job carries its `RequestId`; a service provisioning an
