@@ -48,11 +48,14 @@ ACTIVITY_SLACK_SECONDS = 300
 """How far either side of an alert's activity time the activity behind it is looked for."""
 ACTIVITY_LIMIT = 20
 RECORD_LIMIT = 20000
-SAME_REQUEST_LIMIT = 100
-"""The other records of an activity's request kept on it at most, oldest first:
-`AlertActivity.same_request_count` says how many the search held."""
 """Records read from one search at most, of every type searched (the activity records count too);
 `AlertSearch.truncated` says when the limit was hit, and an alert past it is not returned."""
+SAME_REQUEST_LIMIT = 100
+"""The other records of an activity's request, or of its connection, kept on it at most, oldest
+first: `AlertActivity.same_request_count` and `same_connection_count` say how many the search held."""
+_PORT = re.compile(r"(?:^\[[^\]]+\]|^[^:\[\]]+):\d+$")
+"""A client address that carries its port: `[::1]:11880`, `203.0.113.7:51544`. A bare IPv6
+address has colons and no brackets, and names no port."""
 
 Timestamp = Annotated[str, Field(description="UTC ISO 8601 timestamp, e.g. 2026-09-30T08:00:00Z.")]
 Names = Annotated[
@@ -107,6 +110,13 @@ class AlertActivity:
     search window cuts is cut here too."""
     same_request_count: int = 0
     """How many such records the search held, kept or not."""
+    same_connection: tuple[JsonObject, ...] = ()
+    """The other records of the same type, actor, server and client connection (`ClientIP` with
+    its port) the same search returned, oldest first, at most `SAME_REQUEST_LIMIT`. A job can give
+    each command a request of its own; its commands still come over one connection to one server.
+    Empty when the record names no server or its client address carries no port."""
+    same_connection_count: int = 0
+    """How many such records the search held, kept or not."""
 
     @property
     def operation(self) -> str | None:
@@ -122,6 +132,8 @@ class AlertActivity:
             "record": self.record,
             "sameRequest": list(self.same_request),
             "sameRequestCount": self.same_request_count,
+            "sameConnection": list(self.same_connection),
+            "sameConnectionCount": self.same_connection_count,
         }
 
 
@@ -461,13 +473,15 @@ def fold_alert_records(records: list[JsonObject]) -> tuple[AlertPolicyAlert, ...
     """
     by_id: dict[str, JsonObject] = {}
     submissions: dict[str, str] = {}
-    jobs: dict[tuple[Any, str], list[JsonObject]] = {}
+    jobs: dict[tuple[Any, ...], list[JsonObject]] = {}
     for record in records:
         audit = record.get("auditData") or {}
         ids = [str(i) for i in (audit.get("Id"), record.get("id")) if i]
         by_id.update((i, record) for i in ids)
         if _text(audit.get("RequestId")):
             jobs.setdefault(_request(audit), []).append(audit)
+        if (connection := _connection(audit)) is not None:
+            jobs.setdefault(connection, []).append(audit)
         if record.get("operation") == "UserSubmission" and audit.get("SubmissionId") and ids:
             submissions[str(audit["SubmissionId"])] = ids[0]
     grouped: dict[str, list[JsonObject]] = {}
@@ -491,7 +505,7 @@ def _alert(
     records: list[JsonObject],
     by_id: dict[str, JsonObject],
     submissions: dict[str, str],
-    jobs: dict[tuple[Any, str], list[JsonObject]],
+    jobs: dict[tuple[Any, ...], list[JsonObject]],
 ) -> AlertPolicyAlert | None:
     ordered = sorted(records, key=lambda r: str(r.get("createdDateTime", "")))
     raised = next((r for r in ordered if r.get("operation") == "AlertTriggered"), None)
@@ -534,7 +548,7 @@ def _activities(
     entities: tuple[AlertEntity, ...],
     by_id: dict[str, JsonObject],
     submissions: dict[str, str],
-    jobs: dict[tuple[Any, str], list[JsonObject]],
+    jobs: dict[tuple[Any, ...], list[JsonObject]],
 ) -> tuple[AlertActivity, ...]:
     """One activity per audit record the alert's pointers name; the raising pointer's comes first.
 
@@ -565,6 +579,7 @@ def _activities(
             continue
         target = (by_id.get(pointer) or {}).get("auditData")
         job = _same_request(target, jobs)
+        session = _same_connection(target, jobs)
         repeat = bool(found) or raising is None
         found[pointer] = AlertActivity(
             record_id=pointer,
@@ -574,16 +589,41 @@ def _activities(
             record=target,
             same_request=tuple(job[:SAME_REQUEST_LIMIT]),
             same_request_count=len(job),
+            same_connection=tuple(session[:SAME_REQUEST_LIMIT]),
+            same_connection_count=len(session),
         )
     return tuple(found.values())
 
 
-def _request(audit: JsonObject) -> tuple[Any, str]:
+def _request(audit: JsonObject) -> tuple[Any, ...]:
     return (audit.get("RecordType"), str(audit.get("RequestId")))
 
 
+def _connection(audit: JsonObject) -> tuple[Any, ...] | None:
+    """The record's client connection: its type, actor, server and client address with its port;
+    None when it names no server, no actor, or an address with no port."""
+    client = str(audit.get("ClientIP") or "").strip()
+    server = _text(audit.get("OriginatingServer"))
+    actor = _text(audit.get("UserId"))
+    if not (server and actor and _PORT.search(client)):
+        return None
+    return ("connection", audit.get("RecordType"), actor, server, client)
+
+
+def _same_connection(
+    target: JsonObject | None, jobs: dict[tuple[Any, ...], list[JsonObject]]
+) -> list[JsonObject]:
+    """The other records of the target's client connection, oldest first; none when it has none."""
+    connection = _connection(target or {})
+    if connection is None:
+        return []
+    own = (target or {}).get("Id")
+    found = [r for r in jobs.get(connection, []) if r.get("Id") != own]
+    return sorted(found, key=lambda r: (str(r.get("CreationTime", "")), str(r.get("Id", ""))))
+
+
 def _same_request(
-    target: JsonObject | None, jobs: dict[tuple[Any, str], list[JsonObject]]
+    target: JsonObject | None, jobs: dict[tuple[Any, ...], list[JsonObject]]
 ) -> list[JsonObject]:
     """The other records of the target's request, oldest first; none when it names no request."""
     if not target or not _text(target.get("RequestId")):

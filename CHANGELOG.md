@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+**Added**
+- `AlertActivity.same_connection` and `same_connection_count`: the other records of the same type,
+  actor, server (`OriginatingServer`) and client connection (`ClientIP` with its port) that the
+  same alert search returned, oldest first, at most `SAME_REQUEST_LIMIT`. Exchange Online can run
+  one provisioning job with a request per command: on a run read in a test tenant, 70 commands
+  carried 70 different `RequestId` values, and all 70 came over one connection to one server. The
+  connection is what still ties such a job together. Empty when the record names no server or its
+  client address carries no port. Both fields are in `as_json` (`sameConnection`,
+  `sameConnectionCount`).
+
 ## microsoft-security 0.5.0 (2026-10-13)
 
 **Added**

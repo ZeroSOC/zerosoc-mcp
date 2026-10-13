@@ -192,6 +192,8 @@ def test_activities_are_part_of_the_alert_as_json() -> None:
         "record": None,
         "sameRequest": [],
         "sameRequestCount": 0,
+        "sameConnection": [],
+        "sameConnectionCount": 0,
     }
 
 
@@ -447,6 +449,90 @@ def test_the_job_is_part_of_the_activity_as_json() -> None:
 
     assert [r["Operation"] for r in shown["sameRequest"]] == ["Set-TenantObjectVersion"]
     assert shown["sameRequestCount"] == 1
+
+
+SERVICE = "NT SERVICE\ExampleService"
+SERVER = "EXAMPLE01 (15.21.0000.000)"
+
+
+def _connected(record: dict[str, Any], client: str, *, actor: str = SERVICE) -> dict[str, Any]:
+    """A record made one of the connection client opened to the server, by actor."""
+    audit = {
+        **record["auditData"],
+        "UserId": actor,
+        "ClientIP": client,
+        "OriginatingServer": SERVER,
+    }
+    return {**record, "auditData": audit}
+
+
+def _by_connection(client: str) -> list[dict[str, Any]]:
+    """The fixture with the raising activity made a service's, on connection client."""
+    return [_connected(r, client) if r["id"] == RAISING else r for r in ACTIVITY]
+
+
+def test_an_activity_carries_the_other_records_of_its_client_connection() -> None:
+    """A provisioning job can give each command its own request; every command of the job still
+    comes over one connection to one server. Another port, actor or server is another connection."""
+    step = _step
+    records = [
+        *_by_connection("[::1]:11880"),
+        _connected(
+            step(
+                "70000000-0000-0000-0000-000000000002", "Set-Mailbox", "r-2", "2026-10-05T15:30:25"
+            ),
+            "[::1]:11880",
+        ),
+        _connected(
+            step(
+                "70000000-0000-0000-0000-000000000001",
+                "Set-TransportConfig",
+                "r-1",
+                "2026-10-05T15:30:21",
+            ),
+            "[::1]:11880",
+        ),
+        _connected(
+            step(
+                "70000000-0000-0000-0000-000000000003", "Set-Mailbox", "r-3", "2026-10-05T15:30:26"
+            ),
+            "[::1]:13877",
+        ),
+        _connected(
+            step(
+                "70000000-0000-0000-0000-000000000004", "Set-Mailbox", "r-4", "2026-10-05T15:30:27"
+            ),
+            "[::1]:11880",
+            actor="NT SERVICE\Other",
+        ),
+    ]
+
+    first, _ = _alert(records, REPEAT).activities
+
+    assert [r["Operation"] for r in first.same_connection] == ["Set-TransportConfig", "Set-Mailbox"]
+    assert first.same_connection_count == 2
+    shown = _alert(records, REPEAT).as_json()["activities"][0]
+    assert [r["Operation"] for r in shown["sameConnection"]] == [
+        "Set-TransportConfig",
+        "Set-Mailbox",
+    ]
+    assert shown["sameConnectionCount"] == 2
+
+
+def test_an_address_without_a_port_names_no_connection() -> None:
+    records = [
+        *_by_connection("203.0.113.7"),
+        _connected(
+            _step(
+                "70000000-0000-0000-0000-000000000001", "Set-Mailbox", "r-1", "2026-10-05T15:30:21"
+            ),
+            "203.0.113.7",
+        ),
+    ]
+
+    first, _ = _alert(records, REPEAT).activities
+
+    assert (first.same_connection, first.same_connection_count) == ((), 0)
 
 
 async def test_the_data_plane_hands_back_every_activity_record_it_read(
