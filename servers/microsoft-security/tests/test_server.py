@@ -91,7 +91,13 @@ async def test_a_tool_call_is_the_operation_call() -> None:
         "defender_list_incidents", {"filter": "status eq 'active'", "top": 5}
     )
 
-    assert payload(result) == {"value": [{"id": "14"}]}
+    assert payload(result) == {
+        "value": [{"id": "14"}],
+        "skip": 0,
+        "top": 5,
+        "returned": 1,
+        "hasMore": False,
+    }
     assert dict(script.requests[0].url.params) == {"$filter": "status eq 'active'", "$top": "5"}
 
 

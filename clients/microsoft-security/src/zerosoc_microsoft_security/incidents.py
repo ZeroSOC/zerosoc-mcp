@@ -32,6 +32,11 @@ MAX_ALERT_PAGES = 100
 """How many pages of the alert expansion are followed. The ceiling above bounds the alerts, which
 only stops the walk while each page carries some: a page that answers with none and still offers a
 next link would otherwise be followed forever. Both bounds are reported the same way."""
+MAX_INCIDENT_PAGES = 10
+"""How many pages one incident listing reads to fill `top`. The service sends at most 50 incidents a
+page and may send fewer with a next link, which the listing follows rather than hand back a short
+page that reads as the end; a page with none and a next link would otherwise be followed forever. A
+listing stopped here says so in `hasMore`, as one cut at `top` does."""
 _SUMMARY = (
     "id",
     "title",
@@ -80,19 +85,40 @@ class Incidents(Surface):
         filter: Filter = None,
         top: Annotated[int, top("incidents", 25, 50)] = 25,
         orderby: OrderBy = None,
+        skip: Skip = 0,
     ) -> JsonObject:
         """List incidents from Microsoft Defender XDR. Incidents group related alerts from all
         Defender workloads (endpoint, identity, email, cloud apps) into one attack story. Supports
         OData filtering with Graph camelCase values, e.g. "status eq 'active'", "severity eq 'high'",
         "lastUpdateDateTime gt 2026-01-01T00:00:00Z", "assignedTo eq 'analyst@contoso.com'". Use it
         to find incidents before drilling into one. A merged incident has status 'redirected' and
-        names its master in redirectIncidentId."""
-        return await self._api.request(
+        names its master in redirectIncidentId. Paged (skip/top): `hasMore` says more incidents
+        match than were returned, so the listing is cut; read on with skip = skip + returned. To
+        read every incident of a window (a retrospective sweep), filter on a fixed createdDateTime
+        window, order by createdDateTime and page until hasMore is false."""
+        size, skip = capped(top, 25, 50), max(0, skip)
+        page = await self._api.request(
             GRAPH,
             "GET",
             "/security/incidents",
-            params=odata(filter, capped(top, 25, 50), orderby=orderby),
+            params=odata(filter, size, skip, orderby),
         )
+        incidents: list[Any] = list(page.get("value") or [])
+        next_link = page.get("@odata.nextLink")
+        pages = 1
+        while next_link and len(incidents) < size and pages < MAX_INCIDENT_PAGES:
+            page = await self._api.follow(GRAPH, str(next_link), "/security/incidents")
+            incidents.extend(page.get("value") or [])
+            next_link = page.get("@odata.nextLink")
+            pages += 1
+        listed = incidents[:size]
+        return {
+            "value": listed,
+            "skip": skip,
+            "top": size,
+            "returned": len(listed),
+            "hasMore": bool(next_link) or len(incidents) > size,
+        }
 
     @operation(tool="defender_get_incident", api="graph", permissions=_READ)
     async def get_incident(self, incident_id: IncidentId) -> JsonObject:

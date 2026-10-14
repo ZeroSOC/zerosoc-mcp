@@ -64,7 +64,7 @@
           "api:graph.incidents"
         ],
         "requires_any": [],
-        "notes": "open and closed incidents and their entities; the 90-day retrospective sweep runs here, never through telemetry"
+        "notes": "open and closed incidents and their entities; the 90-day retrospective sweep runs here, never through telemetry, paged with skip until hasMore is false"
       }
     ],
     "malware.repository": [

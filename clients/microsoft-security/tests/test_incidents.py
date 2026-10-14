@@ -9,6 +9,7 @@ import pytest
 from defender_fakes import Script
 from zerosoc_microsoft_security.client import MicrosoftSecurityClient
 from zerosoc_microsoft_security.errors import RedirectLoopError
+from zerosoc_microsoft_security.incidents import MAX_INCIDENT_PAGES
 
 G = "https://graph.microsoft.com/v1.0"
 INCIDENT_14: dict[str, Any] = json.loads(
@@ -36,6 +37,83 @@ async def test_list_incidents_is_capped(client: MicrosoftSecurityClient, script:
         "$top": "50",
         "$orderby": "createdDateTime desc",
     }
+
+
+def incidents_of(count: int, *, page: int = 50) -> Any:
+    """The listing of a tenant with `count` incidents, honouring $skip and $top as the service does:
+    at most `page` a page, and a next link while more are left."""
+
+    def listing(request: httpx.Request) -> httpx.Response:
+        skip = int(request.url.params.get("$skip", 0))
+        size = min(int(request.url.params.get("$top", 50)), page)
+        value = [{"id": str(n)} for n in range(skip, min(skip + size, count))]
+        body: dict[str, Any] = {"value": value}
+        if skip + size < count:
+            body["@odata.nextLink"] = f"{G}/security/incidents?$top={size}&$skip={skip + size}"
+        return httpx.Response(200, json=body)
+
+    return listing
+
+
+async def test_a_sweep_pages_through_every_incident_of_a_window(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """A 90-day retrospective sweep reads every incident of its window, however many, and stops
+    when the listing says nothing is left."""
+    script.on("GET", f"{G}/security/incidents", incidents_of(120))
+    window = "createdDateTime ge 2026-07-16T00:00:00Z and createdDateTime lt 2026-10-14T00:00:00Z"
+
+    seen: list[str] = []
+    skip, more = 0, True
+    while more:
+        page = await client.list_incidents(
+            filter=window, top=50, orderby="createdDateTime asc", skip=skip
+        )
+        seen.extend(i["id"] for i in page["value"])
+        skip, more = skip + page["returned"], page["hasMore"]
+
+    assert seen == [str(n) for n in range(120)]
+    assert [r.url.params.get("$skip") for r in script.requests] == [None, "50", "100"]
+
+
+async def test_a_listing_cut_short_says_so(client: MicrosoftSecurityClient, script: Script) -> None:
+    script.on("GET", f"{G}/security/incidents", incidents_of(30))
+
+    page = await client.list_incidents(top=25)
+
+    assert (page["skip"], page["top"], page["returned"], page["hasMore"]) == (0, 25, 25, True)
+    assert "@odata.nextLink" not in page, "hasMore and skip say it; the link is the client's"
+    last = await client.list_incidents(top=25, skip=25)
+    assert (last["returned"], last["hasMore"]) == (5, False)
+
+
+async def test_short_pages_are_followed_until_top_is_reached(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """The service may answer with fewer incidents than asked and a next link: the listing follows
+    it rather than hand back a short page that reads as the end."""
+    script.on("GET", f"{G}/security/incidents", incidents_of(30, page=7))
+
+    page = await client.list_incidents(top=20)
+
+    assert [i["id"] for i in page["value"]] == [str(n) for n in range(20)]
+    assert (page["returned"], page["hasMore"]) == (20, True)
+    assert len(script.requests) == 3
+
+
+async def test_a_next_link_that_never_ends_stops_at_the_page_ceiling_and_says_so(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    script.json(
+        "GET",
+        f"{G}/security/incidents",
+        {"value": [], "@odata.nextLink": f"{G}/security/incidents?$skiptoken=again"},
+    )
+
+    page = await client.list_incidents()
+
+    assert len(script.requests) == MAX_INCIDENT_PAGES
+    assert (page["returned"], page["hasMore"]) == (0, True)
 
 
 async def test_a_comment_on_a_merged_incident_lands_on_the_master(
