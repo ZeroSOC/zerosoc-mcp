@@ -12,6 +12,7 @@ import pytest
 from defender_fakes import Script
 from zerosoc_microsoft_security.audit_search import (
     ACTIVITY_RECORD_TYPES,
+    ACTIVITY_SLACK_SECONDS,
     ALERT_RECORD_TYPE,
     CONNECTION_GAP_SECONDS,
     CONNECTION_VECTOR,
@@ -571,6 +572,36 @@ def test_a_connection_outlives_a_build_change_and_ends_when_it_goes_quiet() -> N
 
     assert [r["Id"] for r in first.same_connection] == ["70000000-0000-0000-0000-000000000001"]
     assert first.same_connection_count == 1
+
+
+def test_a_record_named_by_its_search_id_alone_still_carries_its_connection() -> None:
+    """The alert's pointer can name the record by the id the search gives it, with no `Id` in its
+    audit data: the connection is found from either."""
+    records = [
+        *_by_connection("[::1]:11880"),
+        _connected(
+            _step(
+                "70000000-0000-0000-0000-000000000001", "Set-Mailbox", "r-1", "2026-10-05T15:30:21"
+            ),
+            "[::1]:11880",
+        ),
+    ]
+    records = [
+        {**r, "auditData": {k: v for k, v in r["auditData"].items() if k != "Id"}}
+        if r["id"] == RAISING
+        else r
+        for r in records
+    ]
+
+    first, _ = _alert(records, REPEAT).activities
+
+    assert first.record is not None and "Id" not in first.record
+    assert [r["Id"] for r in first.same_connection] == ["70000000-0000-0000-0000-000000000001"]
+    assert first.same_connection_count == 1
+
+
+def test_a_connection_goes_quiet_within_the_reach_of_an_activity() -> None:
+    assert CONNECTION_GAP_SECONDS == ACTIVITY_SLACK_SECONDS
 
 
 def _vector() -> dict[str, Any]:
