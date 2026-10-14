@@ -1,0 +1,80 @@
+{
+ "_comment": "Test vector of the 'same client connection' key of the audit search (audit_search.connection_groups): audit records (auditData) in, groups out. A record joins a group when it has the group's record type, actor (whitespace collapsed, case folded), server (OriginatingServer without its build suffix in parentheses, case folded) and client address with its port (ClientIP, case folded), and its CreationTime is at most window_seconds after the previous record of the group; otherwise it starts a group of its own. A record with no server, no actor, no time or a client address without a port is in no group. Each group lists record Ids oldest first (ties by Id), and the groups are ordered by their first record. Every value is invented.",
+ "window_seconds": 300,
+ "cases": [
+  {
+   "name": "the build suffix changes in the middle of a run: one group",
+   "records": [
+    {"Id": "a1", "CreationTime": "2026-10-05T15:30:20", "RecordType": 1, "Operation": "Set-TenantObjectVersion", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)\r\n"},
+    {"Id": "a2", "CreationTime": "2026-10-05T15:30:40", "RecordType": 1, "Operation": "Install-ResourceConfig", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)\r\n"},
+    {"Id": "a3", "CreationTime": "2026-10-05T15:31:05", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.012)\r\n"},
+    {"Id": "a4", "CreationTime": "2026-10-05T15:31:30", "RecordType": 1, "Operation": "Set-TransportConfig", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.012)"}
+   ],
+   "groups": [["a1", "a2", "a3", "a4"]]
+  },
+  {
+   "name": "a run that crosses midnight UTC: one group",
+   "records": [
+    {"Id": "b1", "CreationTime": "2026-10-05T23:58:30", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:13877", "OriginatingServer": "EXAMPLE02 (15.20.8000.010)"},
+    {"Id": "b2", "CreationTime": "2026-10-05T23:59:50", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:13877", "OriginatingServer": "EXAMPLE02 (15.20.8000.010)"},
+    {"Id": "b3", "CreationTime": "2026-10-06T00:01:10", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:13877", "OriginatingServer": "EXAMPLE02 (15.20.8000.010)"}
+   ],
+   "groups": [["b1", "b2", "b3"]]
+  },
+  {
+   "name": "two runs further apart than the window: two groups",
+   "records": [
+    {"Id": "c1", "CreationTime": "2026-10-05T10:00:00", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"},
+    {"Id": "c2", "CreationTime": "2026-10-05T10:00:20", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"},
+    {"Id": "c3", "CreationTime": "2026-10-05T10:05:21", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"},
+    {"Id": "c4", "CreationTime": "2026-10-05T10:05:40", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"}
+   ],
+   "groups": [["c1", "c2"], ["c3", "c4"]]
+  },
+  {
+   "name": "a gap of exactly the window: one group",
+   "records": [
+    {"Id": "d1", "CreationTime": "2026-10-05T11:00:00", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"},
+    {"Id": "d2", "CreationTime": "2026-10-05T11:05:00.0000000", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"}
+   ],
+   "groups": [["d1", "d2"]]
+  },
+  {
+   "name": "a different client address on the same port: two groups",
+   "records": [
+    {"Id": "e1", "CreationTime": "2026-10-05T12:00:00", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "203.0.113.7:51544", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"},
+    {"Id": "e2", "CreationTime": "2026-10-05T12:00:05", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "198.51.100.4:51544", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"},
+    {"Id": "e3", "CreationTime": "2026-10-05T12:00:10", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "203.0.113.7:51544", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"}
+   ],
+   "groups": [["e1", "e3"], ["e2"]]
+  },
+  {
+   "name": "the actor written in another case or with other spacing: one group",
+   "records": [
+    {"Id": "f1", "CreationTime": "2026-10-05T13:00:00", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"},
+    {"Id": "f2", "CreationTime": "2026-10-05T13:00:10", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": " nt service\\exampleservice ", "ClientIP": "[::1]:11880", "OriginatingServer": "example01 (15.20.8000.010)"},
+    {"Id": "f3", "CreationTime": "2026-10-05T13:00:20", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "NT  SERVICE\\ExampleService", "ClientIP": "[::1]:11880", "OriginatingServer": "EXAMPLE01 (15.20.8000.010)"}
+   ],
+   "groups": [["f1", "f2", "f3"]]
+  },
+  {
+   "name": "the same connection values on two record types: two groups",
+   "records": [
+    {"Id": "g1", "CreationTime": "2026-10-05T14:00:00", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "203.0.113.7:51544", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"},
+    {"Id": "g2", "CreationTime": "2026-10-05T14:00:05", "RecordType": 2, "Operation": "MailItemsAccessed", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "203.0.113.7:51544", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"}
+   ],
+   "groups": [["g1"], ["g2"]]
+  },
+  {
+   "name": "records that name no connection are in no group",
+   "records": [
+    {"Id": "h1", "CreationTime": "2026-10-05T15:00:00", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "203.0.113.7", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"},
+    {"Id": "h2", "CreationTime": "2026-10-05T15:00:05", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "203.0.113.7:51544"},
+    {"Id": "h3", "CreationTime": "2026-10-05T15:00:10", "RecordType": 1, "Operation": "Set-Mailbox", "ClientIP": "203.0.113.7:51544", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"},
+    {"Id": "h4", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "203.0.113.7:51544", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"},
+    {"Id": "h5", "CreationTime": "2026-10-05T15:00:20", "RecordType": 1, "Operation": "Set-Mailbox", "UserId": "admin@contoso.onmicrosoft.com", "ClientIP": "2001:db8::7", "OriginatingServer": "EXAMPLE03 (15.20.8000.010)"}
+   ],
+   "groups": []
+  }
+ ]
+}
