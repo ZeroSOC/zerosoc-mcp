@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## microsoft-security 0.6.0 (2026-10-14)
+
 **Changed**
 - `defender_list_incidents` pages (#38). It takes `skip`, follows a short page's next link to fill
   `top` (at most `MAX_INCIDENT_PAGES` pages) and answers `value`, `skip`, `top`, `returned` and
