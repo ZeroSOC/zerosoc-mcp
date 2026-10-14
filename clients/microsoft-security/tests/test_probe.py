@@ -14,6 +14,7 @@ from zerosoc_microsoft_security.capabilities import (
     ACTING_TABLES,
     CLASS_BINDINGS,
     DATA_SOURCES,
+    ENTITLEMENT_FAMILIES,
     ENTITLEMENTS,
     TABLE_ENTITLEMENTS,
 )
@@ -713,3 +714,30 @@ async def test_a_gated_table_with_rows_answers_whatever_was_declared() -> None:
 
     assert binding["probe"]["checks"]["hunting:DeviceProcessEvents"]["status"] == "available"
     assert binding["data_sources"]["EDR"] is True
+
+
+async def test_a_declaration_speaks_only_for_the_families_it_names() -> None:
+    """A deployment that declared endpoint_p2 before the email tables were gated said nothing about
+    them: they stay undeclared rather than become unlicensed behind its back. Only a declaration
+    that names some tier of a family states the others of that family absent."""
+    endpoint_only = await business_premium(
+        entitlements=frozenset({"endpoint_p2"})
+    ).get_capabilities()
+    checks = endpoint_only["probe"]["checks"]
+    assert checks["hunting:EmailEvents"]["status"] == "undeclared"
+    assert checks["hunting:DeviceProcessEvents"]["status"] == "empty"
+    assert checks["hunting:DisruptionAndResponseEvents"]["status"] == "entitled_no_rows"
+
+    lower_tiers = frozenset({"endpoint_p1", "office365_p1"})
+    stated = await business_premium(entitlements=lower_tiers).get_capabilities()
+    for table in ("EmailEvents", "DeviceProcessEvents", "DisruptionAndResponseEvents"):
+        assert stated["probe"]["checks"][f"hunting:{table}"]["status"] == "unlicensed", table
+
+
+def test_every_entitlement_belongs_to_a_family_and_unknown_ids_are_refused() -> None:
+    assert set(ENTITLEMENT_FAMILIES) == set(ENTITLEMENTS)
+    with pytest.raises(ValueError, match="endpoint_p2") as refused:
+        MicrosoftSecurityClient(
+            transport=Transport(RoleCredential([], [])), entitlements=frozenset({"endpoint_p3"})
+        )
+    assert "endpoint_p3" in str(refused.value)

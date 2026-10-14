@@ -16,7 +16,7 @@ from zerosoc_microsoft_security.auth import (
     TokenCredential,
     credential_from,
 )
-from zerosoc_microsoft_security.capabilities import version
+from zerosoc_microsoft_security.capabilities import check_entitlements, version
 from zerosoc_microsoft_security.client import OPERATIONS, MicrosoftSecurityClient
 from zerosoc_microsoft_security.errors import (
     ActionsDisabledError,
@@ -29,9 +29,10 @@ NAME = "zerosoc-microsoft-security"
 ALLOW_ACTIONS = "DEFENDER_MCP_ALLOW_ACTIONS"
 ENTITLEMENTS = "DEFENDER_MCP_ENTITLEMENTS"
 """Comma-separated entitlement ids this tenant has, for the sources a licensing tier gates and
-no query can settle (see TABLE_ENTITLEMENTS). Setting it states the **complete** set, so an
-entitlement left out is stated to be absent; leaving it unset states nothing, and the probe
-then reports those sources as undeclared rather than guessing either way."""
+no query can settle (see TABLE_ENTITLEMENTS). It speaks for each family of tiers it names an id
+of (ENTITLEMENT_FAMILIES): there, an id left out is stated to be absent. A family it names
+nothing of, or leaving it unset, states nothing, and the probe reports those sources as
+undeclared rather than guessing either way. An unknown id stops the server at startup."""
 INSTRUCTIONS = (
     "Microsoft Defender XDR for one tenant. Call defender_get_capabilities once before"
     " investigating: it says which hunting tables and APIs this tenant exposes, so an empty result"
@@ -94,7 +95,7 @@ def _declared(value: str | None) -> frozenset[str] | None:
     """
     if value is None:
         return None
-    return frozenset(part.strip() for part in value.split(",") if part.strip())
+    return check_entitlements(frozenset(part.strip() for part in value.split(",") if part.strip()))
 
 
 def build_server(client: MicrosoftSecurityClient) -> MCPServer:

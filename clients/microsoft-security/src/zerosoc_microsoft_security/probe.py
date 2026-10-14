@@ -24,6 +24,7 @@ from .capabilities import (
     SOURCE_PROFILES,
     TABLE_ENTITLEMENTS,
     Option,
+    entitlement_stated,
     operation_ref,
     tool_ref,
     version,
@@ -132,7 +133,8 @@ class ProbeResult:
         entitlement = TABLE_ENTITLEMENTS.get(table)
         if entitlement is None:
             return found  # no tier is established as gating it: read as it answered
-        if self.entitlements is None:
+        stated = entitlement_stated(entitlement, self.entitlements)
+        if stated is None:
             unknown = (
                 "the feature is absent or has not acted"
                 if table in ACTING_TABLES
@@ -143,7 +145,7 @@ class ProbeResult:
                 f"no deployment entitlement was declared for {entitlement}: whether {unknown}"
                 " cannot be read from the API",
             )
-        if entitlement not in self.entitlements:
+        if not stated:
             return Check("unlicensed", f"{entitlement} is not among the declared entitlements")
         if table in ACTING_TABLES:
             return Check("entitled_no_rows", f"{entitlement} is declared; the table holds no rows")

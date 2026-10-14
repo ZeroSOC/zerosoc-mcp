@@ -306,11 +306,52 @@ ENTITLEMENTS: dict[str, str] = {
     " 365 licence assigned to users, or as the Defender for Servers plan billed on an Azure"
     " subscription. The two are indistinguishable from this API. Defender for Business, which"
     " Microsoft 365 Business Premium includes, does not write the device event tables.",
+    "endpoint_p1": "No Defender for Endpoint Plan 2: Plan 1, Defender for Business, or no endpoint"
+    " plan. Declared to state endpoint_p2 absent.",
     "office365_p2": "Microsoft Defender for Office 365 Plan 2, alone or in a suite. Plan 1, which"
     " Microsoft 365 Business Premium includes, does not write the email hunting tables.",
+    "office365_p1": "No Defender for Office 365 Plan 2: Plan 1, Exchange Online Protection alone,"
+    " or no mail plan. Declared to state office365_p2 absent.",
 }
 """Entitlement id -> what it is. An entitlement decides whether a source *can* answer; it is not a
 permission and not a table's current contents."""
+ENTITLEMENT_FAMILIES: dict[str, str] = {
+    "endpoint_p2": "endpoint",
+    "endpoint_p1": "endpoint",
+    "office365_p2": "office365",
+    "office365_p1": "office365",
+}
+"""Entitlement id -> the family of tiers it belongs to. A declaration speaks for the families it names
+an id of, and for no other: a deployment that declared `endpoint_p2` before the email tables were
+gated said nothing about them, and they stay undeclared. An empty declaration states that the tenant
+has none of them, as it always has."""
+
+
+def entitlement_stated(entitlement: str, declared: frozenset[str] | None) -> bool | None:
+    """Whether a declaration states the entitlement held (True) or absent (False), or says nothing
+    about it (None): nothing was declared, or the declaration names no id of its family."""
+    if declared is None:
+        return None
+    if entitlement in declared:
+        return True
+    family = ENTITLEMENT_FAMILIES[entitlement]
+    if not declared or any(ENTITLEMENT_FAMILIES.get(d) == family for d in declared):
+        return False
+    return None
+
+
+def check_entitlements(declared: frozenset[str] | None) -> frozenset[str] | None:
+    """The declaration, refused when it names an id this integration does not know: a misspelt id
+    would state its family absent, or nothing at all, and the probe would report either with
+    confidence."""
+    unknown = sorted((declared or frozenset()) - set(ENTITLEMENTS))
+    if unknown:
+        raise ValueError(
+            f"unknown entitlement ids {', '.join(unknown)}; the known ids are"
+            f" {', '.join(ENTITLEMENTS)}"
+        )
+    return declared
+
 
 _DEVICE_TABLES = (
     "DeviceInfo",

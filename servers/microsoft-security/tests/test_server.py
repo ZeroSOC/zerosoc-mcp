@@ -145,6 +145,15 @@ def test_actions_need_the_exact_opt_in() -> None:
         )
 
 
+def test_an_unknown_entitlement_is_a_startup_error_naming_the_known_ones() -> None:
+    """A misspelt id would otherwise state every real entitlement of its family absent, or say
+    nothing at all, and the probe would report it with confidence."""
+    assert settings_from({"DEFENDER_MCP_ENTITLEMENTS": "endpoint_p2, office365_p2"}).entitlements
+    with pytest.raises(ValueError, match="office365_p2") as refused:
+        settings_from({"DEFENDER_MCP_ENTITLEMENTS": "endpoint_p2,ofice365_p2"})
+    assert "ofice365_p2" in str(refused.value)
+
+
 async def test_the_server_runs_standalone_over_stdio() -> None:
     """A separate process, no engine, no credentials: an MCP host can list and call tools."""
     parameters = StdioServerParameters(

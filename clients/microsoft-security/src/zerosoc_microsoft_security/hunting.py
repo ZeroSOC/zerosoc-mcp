@@ -6,7 +6,7 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from .capabilities import TABLE_ENTITLEMENTS
+from .capabilities import TABLE_ENTITLEMENTS, entitlement_stated
 from .operations import operation
 from .surface import Surface, top
 from .transport import GRAPH, JsonObject
@@ -177,11 +177,12 @@ class Hunting(Surface):
     def _entitlement_note(self) -> str:
         """What the deployment declared about the feature that writes the table."""
         entitlement = TABLE_ENTITLEMENTS[DISRUPTION_TABLE]
-        if self._entitlements is None:
+        stated = entitlement_stated(entitlement, self._entitlements)
+        if stated is None:
             return (
                 f"undeclared: the deployment did not say whether it has {entitlement}, which is"
                 " what writes this table, so an empty answer cannot be read either way"
             )
-        if entitlement in self._entitlements:
+        if stated:
             return f"{entitlement} is declared: the table is written when the feature acts"
         return f"{entitlement} is not among the declared entitlements: the feature is stated absent"
