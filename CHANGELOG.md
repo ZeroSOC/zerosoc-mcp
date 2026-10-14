@@ -11,15 +11,19 @@
   reads on with `skip = nextSkip` until `hasMore` is false. `nextSkip` is the service's own
   position (the next link's `$skip`, or the position of the first incident not returned), so a
   caller does not drift by counting what it was given. The listing asks for one incident more than
-  it returns, so a full page is not read as the end where the service sends no next link (it
-  documents next links for paging, not for a request that sets `$top`); at the 50-incident page
-  size it asks for the next incident alone. It follows a short page's next link to fill `top`, at
+  it returns, so a full page is not read as the end: measured on a live tenant, the service sends
+  no next link for a request that sets `$top`, and refuses a `$top` above 50, where the listing asks
+  for the next incident alone. It follows a short page's next link to fill `top`, at
   most `MAX_INCIDENT_PAGES` pages: where the service offers more but no position past the
   request's, `truncated` is true, `hasMore` false and a `note` says the listing is incomplete, so
-  asking again is never invited. The service documents no sort order beyond its own (newest
-  first), so incidents created in the same instant can straddle two pages: a sweep drops an
-  incident it has already seen. The parameters it had are unchanged; the raw `@odata.nextLink` is
-  no longer passed through.
+  asking again is never invited. The listing always sends an order: `createdDateTime desc` by
+  default, and `createdDateTime` as the last key of an order the caller names. On a live tenant the
+  service's own order put two incidents merged in the same instant one way round for a request
+  with `$top` alone and the other way round for one that added `$skip`, so a sweep of 50 a page
+  read one twice and missed the other; ordered by creation time, every sweep read each of the 86
+  incidents once. Incidents created in the same instant could still straddle two pages, so a sweep
+  drops an incident it has already seen. The parameters it had are unchanged; the raw
+  `@odata.nextLink` is no longer passed through, and a call without `orderby` now sends one.
 - `Transport.collected`: the pages of a collection with the link that fetched each, the link reading
   stopped before, and whether it stopped at a page ceiling. `Transport.collect` wraps it and takes
   the same optional ceiling (`max_pages`); its existing callers keep none.

@@ -81,12 +81,59 @@ async def test_a_sweep_pages_through_every_incident_of_a_window(
     assert [r.url.params.get("$skip") for r in script.requests] == [None, "50", "100"]
 
 
+def unstably_ordered(count: int) -> Any:
+    """A listing whose own order is not stable between requests, as measured on a live tenant: two
+    incidents merged in the same instant swapped places between the request that set only $top and
+    the one that also set $skip. An explicit $orderby gives one order."""
+    base = incidents_of(count, links=False)
+
+    def listing(request: httpx.Request) -> httpx.Response:
+        response = base(request)
+        if "$orderby" in request.url.params:
+            return response
+        skip = int(request.url.params.get("$skip", 0))
+        body = response.json()
+        order = [str(n) for n in range(count)]
+        # the first request sees them the other way round
+        order[49], order[50] = order[50], order[49]
+        if skip == 0:
+            body["value"] = [{"id": i} for i in order[: len(body["value"])]]
+        return httpx.Response(200, json=body)
+
+    return listing
+
+
+async def test_a_listing_always_sends_an_order(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """Paging by offset is only as good as the order: the service's own is not stable between
+    requests, so every listing names one, newest first unless the caller says otherwise, with the
+    creation time as the last key."""
+    script.json("GET", f"{G}/security/incidents", {"value": []})
+    await client.list_incidents(top=5)
+    await client.list_incidents(top=5, orderby="lastUpdateDateTime asc")
+    await client.list_incidents(top=5, orderby="createdDateTime asc")
+    assert [r.url.params["$orderby"] for r in script.requests] == [
+        "createdDateTime desc",
+        "lastUpdateDateTime asc,createdDateTime desc",
+        "createdDateTime asc",
+    ]
+
+
+async def test_a_sweep_reads_each_incident_once_whatever_the_services_own_order(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    script.on("GET", f"{G}/security/incidents", unstably_ordered(86))
+
+    assert sorted(await sweep(client, 50), key=int) == [str(n) for n in range(86)]
+
+
 async def test_a_full_page_with_no_next_link_is_not_read_as_the_end(
     client: MicrosoftSecurityClient, script: Script
 ) -> None:
-    """Whether the service sends a next link when the client sets $top is not documented. So the
-    listing asks for one incident more than it returns, and where it cannot (at the page size it
-    never exceeds) it asks for the next one alone."""
+    """The service sends no next link when the client sets $top (measured on a live tenant: 50 of
+    86 incidents, and no link). So the listing asks for one incident more than it returns, and where
+    it cannot (at 50, beyond which the service refuses $top) it asks for the next one alone."""
     script.on("GET", f"{G}/security/incidents", incidents_of(120, links=False))
 
     page = await client.list_incidents(top=25)
