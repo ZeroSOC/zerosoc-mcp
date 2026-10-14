@@ -156,7 +156,7 @@ async def test_the_evidence_inventory_can_be_filtered_and_paged_without_losing_t
 
     result = await client.get_incident_evidence("14", types=["process", "file"], top=3, skip=1)
 
-    assert result["entityCount"] == 13  # always the whole incident: it is what reconciles
+    assert result["entityCount"] == 13  # always the whole incident, whatever the filter
     assert (result["matching"], result["returned"], result["hasMore"]) == (4, 3, False)
     assert {e["type"] for e in result["entities"]} <= {"process", "file"}
 

@@ -165,9 +165,11 @@ class Incidents(Surface):
     ) -> JsonObject:
         """The full evidence inventory of an incident: the portal's evidence view as one table. Pages
         through every alert and flattens the evidence into one row per evidence item, each joined to
-        its device (by device ID, else through the alert) and listing the alerts that cite it. A row
-        is the source's own unit: entityCount equals the portal's count of evidence items and is the
-        number to reconcile; rowCount is the number of per-alert evidence rows. The source lists one
+        its device (by device ID, else through the alert) and listing the alerts that cite it.
+        entityCount is the length of this de-duplicated list: a reproduction of the portal's count
+        of evidence items (it matched on an incident checked by hand), not the source's own count,
+        and so not an independent check of the extraction; a count to check against is read from
+        the portal. rowCount is the number of per-alert evidence rows. The source lists one
         process more than once when alerts describe it differently (no image file, another path, a
         different verdict): those rows share `instance` (device, PID, creation time), sameProcess
         groups them with their verdicts, and processInstanceCount is the number of real processes.

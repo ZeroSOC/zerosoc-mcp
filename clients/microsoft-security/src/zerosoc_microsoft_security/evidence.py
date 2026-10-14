@@ -3,7 +3,14 @@
 Pure functions over the alert resources of the Microsoft Graph security API. The output rows use the
 keys the ZeroSOC skills' `evidence_inventory.py` reads (`type`, `name`, `device`, `alert_ids` and the
 identity keys `pid`, `created`, `sha1`, `sha256`, `path`, `key`), so the inventory can be recorded in
-a ledger unchanged and its count compared with the portal's list of unique evidence items.
+a ledger unchanged.
+
+`entityCount` is the length of the de-duplicated list, built with the same identity rule as
+`evidence_inventory.py`. It is a reproduction of the portal's count of unique evidence items, which it
+matched on one incident checked by hand; the source returns no count of its own. So it is not an
+independent check of the extraction: passed to `evidence_inventory.py` as the source's count, it
+compares the list with its own length and always finds it complete. A count to check against comes
+from the portal, read by a person.
 """
 
 from __future__ import annotations
@@ -24,7 +31,8 @@ _SCOPED = frozenset({"process", "file", "registry"})
 
 
 def inventory(alerts: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
-    """De-duplicated entities of the given alerts, with the counts to reconcile against the source."""
+    """De-duplicated entities of the given alerts, with their counts. `entityCount` reproduces the
+    portal's figure and is no independent check of this list (see the module docstring)."""
     alerts = list(alerts)
     device_names = _device_names(alerts)
     rows = [
@@ -181,7 +189,7 @@ def _mailbox(item: Evidence) -> Row:
 
 
 def _unknown(item: Evidence) -> Row:
-    """A type this client does not model is never dropped: the count must still reconcile."""
+    """A type this client does not model is never dropped: the count must still cover it."""
     skipped = {
         "@odata.type",
         "createdDateTime",
