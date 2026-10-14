@@ -38,6 +38,7 @@ MAX_INCIDENT_PAGES = 10
 asked with a next link, which the listing follows rather than hand back a short page that reads as
 the end; a page with none and a next link would otherwise be followed forever."""
 INCIDENT_PAGE_SIZE = 50
+_DEFAULT_ORDER = "createdDateTime desc"
 """The most incidents the listing asks of one page (`$top`). It asks for one more than it returns, to
 know whether more match without relying on a next link, which the service documents for paging but
 not for a request that sets `$top`; at this size it asks for the next incident alone instead."""
@@ -101,13 +102,16 @@ class Incidents(Surface):
         were returned, and `nextSkip` is where the service says the next one starts; read on with
         skip = nextSkip (not skip + returned, which can drift from the service's position). To read
         every incident of a window (a retrospective sweep), filter on a fixed createdDateTime
-        window and page until hasMore is false. The service documents no sort order for this
-        listing beyond its own, newest first, and none among incidents created in the same
-        instant, which can straddle two pages: drop an incident already seen by its id. `truncated`
+        window and page until hasMore is false. The listing always sorts, because the service's
+        own order is not stable between requests: by createdDateTime, newest first, unless
+        orderby names another order, which then gets createdDateTime as its last key (id cannot
+        be sorted on). Incidents created in the same instant could still straddle two pages: drop
+        an incident already seen by its id. `truncated`
         says the listing could not be read on at all (the service kept answering pages with no
         incidents and no position): it is incomplete, `note` says so, and asking again answers the
         same."""
         size, skip = capped(top, 25, 50), max(0, skip)
+        orderby = _ordered(orderby)
         asked = min(size + 1, INCIDENT_PAGE_SIZE)
         found = await self._api.collected(
             GRAPH,
@@ -376,6 +380,18 @@ class Incidents(Surface):
             next_link = page.get("@odata.nextLink")
             pages += 1
         return alerts[:MAX_ALERTS], bool(next_link) or len(alerts) > MAX_ALERTS
+
+
+def _ordered(orderby: str | None) -> str:
+    """An order offset paging can rely on. Measured on a live tenant, the listing's own order put two
+    incidents merged in the same instant one way round for a request with $top alone and the other
+    way round for the one that added $skip, so a sweep read one twice and missed the other. Ordering
+    by creation time read every incident once, twice over."""
+    if not orderby or not orderby.strip():
+        return _DEFAULT_ORDER
+    if "createddatetime" in orderby.replace(" ", "").lower():
+        return orderby
+    return f"{orderby},{_DEFAULT_ORDER}"
 
 
 def _skip_of(link: str | None) -> int | None:
