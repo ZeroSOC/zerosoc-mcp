@@ -2,6 +2,45 @@
 
 ## Unreleased
 
+**Changed**
+- `defender_list_incidents` pages (#38). It takes `skip`, follows a short page's next link to fill
+  `top` (at most `MAX_INCIDENT_PAGES` pages) and answers `value`, `skip`, `top`, `returned` and
+  `hasMore`: a listing that holds less than what matches says so, and a sweep reads on with
+  `skip + returned` until `hasMore` is false. It returned at most 50 incidents with no way to read
+  on, so a 90-day retrospective sweep bound to it stopped at 50 without saying so. The parameters
+  it had are unchanged; the raw `@odata.nextLink` is no longer passed through.
+- The capability probe records the device and email hunting tables as unavailable, with the reason,
+  when they hold no rows and the licence that writes them is not declared (#38). On a Microsoft 365
+  Business Premium tenant with onboarded devices and mail, hunting answers and the directory,
+  vulnerability-management and alert tables hold rows, while `DeviceInfo`, the `Device*Events`
+  tables, the `Email*` tables and `UrlClickEvents` hold none: Defender for Business and Defender
+  for Office 365 Plan 1 do not write them. The probe reported them `empty`, which reads as activity
+  that did not happen. They are now in `TABLE_ENTITLEMENTS`, on `endpoint_p2` and a new
+  `office365_p2`: with nothing declared such a table is `undeclared` (the API cannot tell a missing
+  licence from no source reporting), stated absent it is `unlicensed`, and the binding falls back
+  where it can (`telemetry.endpoint` to alert evidence) with the reason in its notes. With the
+  licence declared an empty device or email table stays `empty`, a gap: only a table written when
+  its feature acts (`ACTING_TABLES`, the attack disruption table) answers with no rows
+  (`entitled_no_rows`). `DEFENDER_MCP_ENTITLEMENTS=endpoint_p2,office365_p2` declares both.
+
+**Fixed**
+- `sameConnection` keeps one job's records together (#38). It grouped records on the raw server
+  name, build suffix included, with no time bound: the build suffix can change in the middle of one
+  job, which split the job and undercounted it, and the same address and port hours later counted
+  as the same connection. `connection_groups` documents the key: record type, actor (whitespace
+  collapsed, case folded), server without its build suffix, client address with its port, and a
+  record more than `CONNECTION_GAP_SECONDS` (300) after the previous one of its group starts a new
+  group. The record type stays in the key: the connection fields are each workload's own and are
+  only known to mean one connection on the Exchange admin records a job writes. The rule's test
+  vector ships in the package, `same_connection.vector.json` (`CONNECTION_VECTOR`), for a consumer
+  that keeps its own copy of the rule.
+- `entityCount` is described as what it is (#38): the length of the de-duplicated evidence list,
+  built with the identity rule of the skills' `evidence_inventory.py`, a reproduction of the
+  portal's count that matched it on one incident checked by hand. The tool description and the
+  evidence module said it equals the portal's count and is the number to reconcile; passed back as
+  the source's count it compares the list with its own length, so it is not an independent check
+  of the extraction.
+
 ## microsoft-security 0.5.1 (2026-10-13)
 
 **Added**
