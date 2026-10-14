@@ -4,13 +4,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
+import httpx
 from pydantic import Field
 
 from .errors import InvalidInputError, RedirectLoopError
 from .evidence import inventory
 from .operations import operation
 from .surface import Classification, Determination, Filter, OrderBy, Skip, Surface, top
-from .transport import GRAPH, JsonObject, capped, odata, seg
+from .transport import GRAPH, Collected, JsonObject, capped, odata, seg
 
 IncidentId = Annotated[
     str, Field(description="The incident ID, as shown in the Defender portal and the Graph API.")
@@ -33,10 +34,14 @@ MAX_ALERT_PAGES = 100
 only stops the walk while each page carries some: a page that answers with none and still offers a
 next link would otherwise be followed forever. Both bounds are reported the same way."""
 MAX_INCIDENT_PAGES = 10
-"""How many pages one incident listing reads to fill `top`. The service sends at most 50 incidents a
-page and may send fewer with a next link, which the listing follows rather than hand back a short
-page that reads as the end; a page with none and a next link would otherwise be followed forever. A
-listing stopped here says so in `hasMore`, as one cut at `top` does."""
+"""How many pages one incident listing reads to fill `top`. The service may send fewer incidents than
+asked with a next link, which the listing follows rather than hand back a short page that reads as
+the end; a page with none and a next link would otherwise be followed forever."""
+INCIDENT_PAGE_SIZE = 50
+"""The most incidents the listing asks of one page (`$top`). It asks for one more than it returns, to
+know whether more match without relying on a next link, which the service documents for paging but
+not for a request that sets `$top`; at this size it asks for the next incident alone instead."""
+_INCIDENTS = "/security/incidents"
 _SUMMARY = (
     "id",
     "title",
@@ -92,33 +97,56 @@ class Incidents(Surface):
         OData filtering with Graph camelCase values, e.g. "status eq 'active'", "severity eq 'high'",
         "lastUpdateDateTime gt 2026-01-01T00:00:00Z", "assignedTo eq 'analyst@contoso.com'". Use it
         to find incidents before drilling into one. A merged incident has status 'redirected' and
-        names its master in redirectIncidentId. Paged (skip/top): `hasMore` says more incidents
-        match than were returned, so the listing is cut; read on with skip = skip + returned. To
-        read every incident of a window (a retrospective sweep), filter on a fixed createdDateTime
-        window, order by createdDateTime and page until hasMore is false."""
+        names its master in redirectIncidentId. Paged: `hasMore` says more incidents match than
+        were returned, and `nextSkip` is where the service says the next one starts; read on with
+        skip = nextSkip (not skip + returned, which can drift from the service's position). To read
+        every incident of a window (a retrospective sweep), filter on a fixed createdDateTime
+        window and page until hasMore is false. The service documents no sort order for this
+        listing beyond its own, newest first, and none among incidents created in the same
+        instant, which can straddle two pages: drop an incident already seen by its id. `truncated`
+        says the listing could not be read on at all (the service kept answering pages with no
+        incidents and no position): it is incomplete, `note` says so, and asking again answers the
+        same."""
         size, skip = capped(top, 25, 50), max(0, skip)
-        page = await self._api.request(
+        asked = min(size + 1, INCIDENT_PAGE_SIZE)
+        found = await self._api.collected(
             GRAPH,
-            "GET",
-            "/security/incidents",
-            params=odata(filter, size, skip, orderby),
+            _INCIDENTS,
+            params=odata(filter, asked, skip, orderby),
+            limit=max(asked, size),
+            max_pages=MAX_INCIDENT_PAGES,
         )
-        incidents: list[Any] = list(page.get("value") or [])
-        next_link = page.get("@odata.nextLink")
-        pages = 1
-        while next_link and len(incidents) < size and pages < MAX_INCIDENT_PAGES:
-            page = await self._api.follow(GRAPH, str(next_link), "/security/incidents")
-            incidents.extend(page.get("value") or [])
-            next_link = page.get("@odata.nextLink")
-            pages += 1
-        listed = incidents[:size]
-        return {
+        incidents, listed = found.items, found.items[:size]
+        position: int | None = None
+        if len(incidents) > size:
+            position = _position(found, skip, size)
+        elif found.next_link:
+            position = _skip_of(found.next_link)
+            position = skip + len(listed) if position is None else position
+        elif len(incidents) == size == asked:
+            # a page as full as the listing asks, and no next link: ask for the next one alone
+            end = _position(found, skip, len(incidents))
+            after = await self._api.request(
+                GRAPH, "GET", _INCIDENTS, params=odata(filter, 1, end, orderby)
+            )
+            position = end if after.get("value") else None
+        stuck = position is not None and position <= skip
+        answer: JsonObject = {
             "value": listed,
             "skip": skip,
             "top": size,
             "returned": len(listed),
-            "hasMore": bool(next_link) or len(incidents) > size,
+            "hasMore": position is not None and not stuck,
+            "nextSkip": None if stuck else position,
+            "truncated": stuck,
         }
+        if stuck:
+            answer["note"] = (
+                "the service offered more incidents but no position past this request's to read"
+                " on from: this listing is incomplete, and asking again answers the same; narrow"
+                " the filter"
+            )
+        return answer
 
     @operation(tool="defender_get_incident", api="graph", permissions=_READ)
     async def get_incident(self, incident_id: IncidentId) -> JsonObject:
@@ -348,3 +376,24 @@ class Incidents(Surface):
             next_link = page.get("@odata.nextLink")
             pages += 1
         return alerts[:MAX_ALERTS], bool(next_link) or len(alerts) > MAX_ALERTS
+
+
+def _skip_of(link: str | None) -> int | None:
+    """The position a next link resumes from, where it names one (`$skip`); None for a token."""
+    try:
+        return int(httpx.URL(link).params["$skip"]) if link else None
+    except (KeyError, ValueError):
+        return None
+
+
+def _position(found: Collected, skip: int, index: int) -> int:
+    """The service's position of the `index`-th item read: the position its page starts at (the
+    request's own `skip` for the first page, the `$skip` of the link that fetched any other) plus
+    its place in the page. A page fetched by a link that names no position counts on from `skip`."""
+    before = 0
+    for number, page in enumerate(found.pages):
+        if index < before + len(page.items) or number == len(found.pages) - 1:
+            start = skip if page.url is None else _skip_of(page.url)
+            return (skip + before if start is None else start) + (index - before)
+        before += len(page.items)
+    return skip + index

@@ -39,20 +39,35 @@ async def test_list_incidents_is_capped(client: MicrosoftSecurityClient, script:
     }
 
 
-def incidents_of(count: int, *, page: int = 50) -> Any:
-    """The listing of a tenant with `count` incidents, honouring $skip and $top as the service does:
-    at most `page` a page, and a next link while more are left."""
+def incidents_of(count: int, *, page: int = 50, links: bool = True) -> Any:
+    """The listing of a tenant with `count` incidents, honouring $skip and $top: at most `page` a
+    page, and a next link while more are left, unless the service sends `links` none."""
 
     def listing(request: httpx.Request) -> httpx.Response:
         skip = int(request.url.params.get("$skip", 0))
         size = min(int(request.url.params.get("$top", 50)), page)
         value = [{"id": str(n)} for n in range(skip, min(skip + size, count))]
         body: dict[str, Any] = {"value": value}
-        if skip + size < count:
+        if links and skip + size < count:
             body["@odata.nextLink"] = f"{G}/security/incidents?$top={size}&$skip={skip + size}"
         return httpx.Response(200, json=body)
 
     return listing
+
+
+async def sweep(client: MicrosoftSecurityClient, top: int) -> list[str]:
+    """What a retrospective sweep does: read on from nextSkip until hasMore is false."""
+    seen: list[str] = []
+    skip: int | None = 0
+    while skip is not None:
+        page = await client.list_incidents(filter=WINDOW, top=top, skip=skip)
+        seen.extend(i["id"] for i in page["value"])
+        assert page["truncated"] is False
+        skip = page["nextSkip"] if page["hasMore"] else None
+    return seen
+
+
+WINDOW = "createdDateTime ge 2026-07-16T00:00:00Z and createdDateTime lt 2026-10-14T00:00:00Z"
 
 
 async def test_a_sweep_pages_through_every_incident_of_a_window(
@@ -61,19 +76,24 @@ async def test_a_sweep_pages_through_every_incident_of_a_window(
     """A 90-day retrospective sweep reads every incident of its window, however many, and stops
     when the listing says nothing is left."""
     script.on("GET", f"{G}/security/incidents", incidents_of(120))
-    window = "createdDateTime ge 2026-07-16T00:00:00Z and createdDateTime lt 2026-10-14T00:00:00Z"
 
-    seen: list[str] = []
-    skip, more = 0, True
-    while more:
-        page = await client.list_incidents(
-            filter=window, top=50, orderby="createdDateTime asc", skip=skip
-        )
-        seen.extend(i["id"] for i in page["value"])
-        skip, more = skip + page["returned"], page["hasMore"]
-
-    assert seen == [str(n) for n in range(120)]
+    assert await sweep(client, 50) == [str(n) for n in range(120)]
     assert [r.url.params.get("$skip") for r in script.requests] == [None, "50", "100"]
+
+
+async def test_a_full_page_with_no_next_link_is_not_read_as_the_end(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """Whether the service sends a next link when the client sets $top is not documented. So the
+    listing asks for one incident more than it returns, and where it cannot (at the page size it
+    never exceeds) it asks for the next one alone."""
+    script.on("GET", f"{G}/security/incidents", incidents_of(120, links=False))
+
+    page = await client.list_incidents(top=25)
+    assert (page["returned"], page["hasMore"], page["nextSkip"]) == (25, True, 25)
+    assert script.requests[0].url.params["$top"] == "26"
+
+    assert await sweep(client, 50) == [str(n) for n in range(120)]
 
 
 async def test_a_listing_cut_short_says_so(client: MicrosoftSecurityClient, script: Script) -> None:
@@ -82,28 +102,41 @@ async def test_a_listing_cut_short_says_so(client: MicrosoftSecurityClient, scri
     page = await client.list_incidents(top=25)
 
     assert (page["skip"], page["top"], page["returned"], page["hasMore"]) == (0, 25, 25, True)
-    assert "@odata.nextLink" not in page, "hasMore and skip say it; the link is the client's"
+    assert (page["nextSkip"], page["truncated"]) == (25, False)
+    assert "@odata.nextLink" not in page, "hasMore and nextSkip say it; the link is the client's"
     last = await client.list_incidents(top=25, skip=25)
-    assert (last["returned"], last["hasMore"]) == (5, False)
+    assert (last["returned"], last["hasMore"], last["nextSkip"]) == (5, False, None)
 
 
-async def test_short_pages_are_followed_until_top_is_reached(
+async def test_the_listing_resumes_where_the_service_says_it_stopped(
     client: MicrosoftSecurityClient, script: Script
 ) -> None:
-    """The service may answer with fewer incidents than asked and a next link: the listing follows
-    it rather than hand back a short page that reads as the end."""
-    script.on("GET", f"{G}/security/incidents", incidents_of(30, page=7))
+    """A service whose pages are short of what its next link skips (here each page of ten
+    positions shows seven incidents) would drift a caller counting what it was given: it would
+    read some incidents twice and others never. nextSkip is the service's own position."""
 
-    page = await client.list_incidents(top=20)
+    def gappy(request: httpx.Request) -> httpx.Response:
+        skip = int(request.url.params.get("$skip", 0))
+        size = int(request.url.params.get("$top", 50))
+        end = (skip // 10 + 1) * 10
+        value = [n for n in range(skip, end) if n % 10 < 7][:size]
+        after = end if len(value) < size else value[-1] + 1
+        body: dict[str, Any] = {"value": [{"id": str(n)} for n in value]}
+        if after < 30:
+            body["@odata.nextLink"] = f"{G}/security/incidents?$top={size}&$skip={after}"
+        return httpx.Response(200, json=body)
 
-    assert [i["id"] for i in page["value"]] == [str(n) for n in range(20)]
-    assert (page["returned"], page["hasMore"]) == (20, True)
-    assert len(script.requests) == 3
+    script.on("GET", f"{G}/security/incidents", gappy)
+
+    assert await sweep(client, 10) == [str(n) for n in range(30) if n % 10 < 7]
 
 
-async def test_a_next_link_that_never_ends_stops_at_the_page_ceiling_and_says_so(
+async def test_a_listing_that_cannot_move_on_says_so_and_never_invites_a_repeat(
     client: MicrosoftSecurityClient, script: Script
 ) -> None:
+    """Pages with no incidents and a next link that names no position: the ceiling stops the
+    reading, and since nothing moved, asking again would answer the same. The listing says it is
+    incomplete and offers no next position."""
     script.json(
         "GET",
         f"{G}/security/incidents",
@@ -113,7 +146,24 @@ async def test_a_next_link_that_never_ends_stops_at_the_page_ceiling_and_says_so
     page = await client.list_incidents()
 
     assert len(script.requests) == MAX_INCIDENT_PAGES
-    assert (page["returned"], page["hasMore"]) == (0, True)
+    assert (page["returned"], page["hasMore"], page["nextSkip"]) == (0, False, None)
+    assert page["truncated"] is True and "incomplete" in page["note"]
+
+
+async def test_empty_pages_that_move_on_are_followed_from_where_they_stopped(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    def empty(request: httpx.Request) -> httpx.Response:
+        skip = int(request.url.params.get("$skip", 0))
+        link = f"{G}/security/incidents?$skip={skip + 10}"
+        return httpx.Response(200, json={"value": [], "@odata.nextLink": link})
+
+    script.on("GET", f"{G}/security/incidents", empty)
+
+    page = await client.list_incidents(skip=5)
+
+    assert (page["returned"], page["hasMore"], page["truncated"]) == (0, True, False)
+    assert page["nextSkip"] == 5 + 10 * MAX_INCIDENT_PAGES
 
 
 async def test_a_comment_on_a_merged_incident_lands_on_the_master(

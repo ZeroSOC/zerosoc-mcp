@@ -97,8 +97,10 @@ async def test_a_tool_call_is_the_operation_call() -> None:
         "top": 5,
         "returned": 1,
         "hasMore": False,
+        "nextSkip": None,
+        "truncated": False,
     }
-    assert dict(script.requests[0].url.params) == {"$filter": "status eq 'active'", "$top": "5"}
+    assert dict(script.requests[0].url.params) == {"$filter": "status eq 'active'", "$top": "6"}
 
 
 async def test_an_api_failure_reaches_the_agent_with_its_remediation() -> None:

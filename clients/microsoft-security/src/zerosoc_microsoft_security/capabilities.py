@@ -86,7 +86,7 @@ CLASS_BINDINGS: tuple[ClassBinding, ...] = (
                 "list_incidents",
                 requires_all=("api:graph.incidents",),
                 notes="open and closed incidents and their entities; the 90-day retrospective sweep"
-                " runs here, never through telemetry, paged with skip until hasMore is false",
+                " runs here, never through telemetry, read on from nextSkip until hasMore is false",
             ),
         ),
     ),
