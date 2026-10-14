@@ -86,7 +86,7 @@ CLASS_BINDINGS: tuple[ClassBinding, ...] = (
                 "list_incidents",
                 requires_all=("api:graph.incidents",),
                 notes="open and closed incidents and their entities; the 90-day retrospective sweep"
-                " runs here, never through telemetry",
+                " runs here, never through telemetry, read on from nextSkip until hasMore is false",
             ),
         ),
     ),
@@ -304,23 +304,95 @@ DATA_SOURCES: dict[str, dict[str, Any]] = _load_data_sources()
 ENTITLEMENTS: dict[str, str] = {
     "endpoint_p2": "Microsoft Defender for Endpoint Plan 2, however it is bought — as a Microsoft"
     " 365 licence assigned to users, or as the Defender for Servers plan billed on an Azure"
-    " subscription. The two are indistinguishable from this API.",
+    " subscription. The two are indistinguishable from this API. Defender for Business, which"
+    " Microsoft 365 Business Premium includes, does not write the device event tables.",
+    "endpoint_p1": "No Defender for Endpoint Plan 2: Plan 1, Defender for Business, or no endpoint"
+    " plan. Declared to state endpoint_p2 absent.",
+    "office365_p2": "Microsoft Defender for Office 365 Plan 2, alone or in a suite. Plan 1, which"
+    " Microsoft 365 Business Premium includes, does not write the email hunting tables.",
+    "office365_p1": "No Defender for Office 365 Plan 2: Plan 1, Exchange Online Protection alone,"
+    " or no mail plan. Declared to state office365_p2 absent.",
 }
 """Entitlement id -> what it is. An entitlement decides whether a source *can* answer; it is not a
 permission and not a table's current contents."""
+ENTITLEMENT_FAMILIES: dict[str, str] = {
+    "endpoint_p2": "endpoint",
+    "endpoint_p1": "endpoint",
+    "office365_p2": "office365",
+    "office365_p1": "office365",
+}
+"""Entitlement id -> the family of tiers it belongs to. A declaration speaks for the families it names
+an id of, and for no other: a deployment that declared `endpoint_p2` before the email tables were
+gated said nothing about them, and they stay undeclared. An empty declaration states that the tenant
+has none of them, as it always has."""
+
+
+def entitlement_stated(entitlement: str, declared: frozenset[str] | None) -> bool | None:
+    """Whether a declaration states the entitlement held (True) or absent (False), or says nothing
+    about it (None): nothing was declared, or the declaration names no id of its family."""
+    if declared is None:
+        return None
+    if entitlement in declared:
+        return True
+    family = ENTITLEMENT_FAMILIES[entitlement]
+    if not declared or any(ENTITLEMENT_FAMILIES.get(d) == family for d in declared):
+        return False
+    return None
+
+
+def check_entitlements(declared: frozenset[str] | None) -> frozenset[str] | None:
+    """The declaration, refused when it names an id this integration does not know: a misspelt id
+    would state its family absent, or nothing at all, and the probe would report either with
+    confidence."""
+    unknown = sorted((declared or frozenset()) - set(ENTITLEMENTS))
+    if unknown:
+        raise ValueError(
+            f"unknown entitlement ids {', '.join(unknown)}; the known ids are"
+            f" {', '.join(ENTITLEMENTS)}"
+        )
+    return declared
+
+
+_DEVICE_TABLES = (
+    "DeviceInfo",
+    "DeviceProcessEvents",
+    "DeviceNetworkEvents",
+    "DeviceFileEvents",
+    "DeviceRegistryEvents",
+    "DeviceLogonEvents",
+    "DeviceImageLoadEvents",
+    "DeviceEvents",
+)
+_EMAIL_TABLES = (
+    "EmailEvents",
+    "EmailAttachmentInfo",
+    "EmailUrlInfo",
+    "EmailPostDeliveryEvents",
+    "UrlClickEvents",
+)
 
 TABLE_ENTITLEMENTS: dict[str, str] = {
     "DisruptionAndResponseEvents": "endpoint_p2",
+    **dict.fromkeys(_DEVICE_TABLES, "endpoint_p2"),
+    **dict.fromkeys(_EMAIL_TABLES, "office365_p2"),
 }
 """Hunting table -> the entitlement that writes it, for the tables a tier gates.
 
-A table that is absent from this map is written by ordinary traffic, so an empty answer from it
-means the traffic did not occur. A table that is present is written only by a licensed feature, and
-then an empty answer is ambiguous: the tenant may lack the feature, or the feature may simply not
-have acted. **No query resolves that ambiguity** — the table's schema resolves at every tier and the
-query succeeds and returns nothing either way — so the entitlement is declared by the deployment
-rather than probed. Entries are added as a tier is established, never guessed.
+A table that is absent from this map has no tier established as gating it, and is read as it
+answers. A table that is present is written only under its entitlement, and then an empty answer is ambiguous: the tenant may
+lack the entitlement, or nothing may have written to the table. **No query resolves that ambiguity**
+— the table's schema resolves at every tier and the query succeeds and returns nothing either way —
+so the entitlement is declared by the deployment rather than probed, and an empty gated table with
+nothing declared is unavailable, never a quiet tenant. Entries are added as a tier is established,
+never guessed: on a Microsoft 365 Business Premium tenant with onboarded devices and mail, hunting
+answered, the directory, vulnerability-management and alert tables held rows, and the device event
+and email tables held none.
 """
+ACTING_TABLES: frozenset[str] = frozenset({"DisruptionAndResponseEvents"})
+"""The gated tables written only when their feature acts. Under a declared entitlement an empty one
+is an answer: the feature did not act. Every other gated table is written by each device or mailbox
+the entitlement covers, as it runs, so under the entitlement an empty one says that no source
+reported, which is a gap and not an answer."""
 
 
 def tool_ref(tool: str) -> str:

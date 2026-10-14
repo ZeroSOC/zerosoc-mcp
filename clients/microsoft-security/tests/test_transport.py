@@ -115,6 +115,49 @@ async def test_collect_follows_next_links_up_to_the_limit(
     assert len(script.requests) == 2
 
 
+async def test_collected_says_where_it_stopped_and_which_link_fetched_each_page(
+    transport: Transport, script: Script
+) -> None:
+    """A caller that resumes a listing needs the position the service holds, not a count of its
+    own: each page comes with the link that fetched it, and the link reading stopped before."""
+    script.on(
+        "GET",
+        f"{G}/security/alerts_v2",
+        httpx.Response(
+            200, json={"value": [1, 2], "@odata.nextLink": f"{G}/security/alerts_v2?$skip=2"}
+        ),
+        httpx.Response(
+            200, json={"value": [3], "@odata.nextLink": f"{G}/security/alerts_v2?$skip=5"}
+        ),
+    )
+
+    found = await transport.collected(GRAPH, "/security/alerts_v2", limit=3)
+
+    assert found.items == [1, 2, 3]
+    assert [page.url for page in found.pages] == [None, f"{G}/security/alerts_v2?$skip=2"]
+    assert found.next_link == f"{G}/security/alerts_v2?$skip=5"
+    assert found.stopped is False
+
+
+async def test_collect_stops_at_a_page_ceiling_and_says_so(
+    transport: Transport, script: Script
+) -> None:
+    """A collection that answers pages without items and always offers another would be read
+    forever: the ceiling ends it, and the result says it was the ceiling and not the end."""
+    script.json(
+        "GET",
+        f"{G}/security/alerts_v2",
+        {"value": [], "@odata.nextLink": f"{G}/security/alerts_v2?$skiptoken=again"},
+    )
+
+    found = await transport.collected(GRAPH, "/security/alerts_v2", limit=10, max_pages=4)
+
+    assert (found.items, found.stopped, len(script.requests)) == ([], True, 4)
+    assert found.next_link == f"{G}/security/alerts_v2?$skiptoken=again"
+    assert await transport.collect(GRAPH, "/security/alerts_v2", limit=10, max_pages=2) == []
+    assert len(script.requests) == 6
+
+
 async def test_a_next_link_to_another_host_is_never_followed(
     transport: Transport, script: Script
 ) -> None:

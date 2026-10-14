@@ -7,6 +7,7 @@ from typing import Any
 from .alerts import Alerts
 from .audit_search import AuditSearch
 from .auth import TokenCredential
+from .capabilities import check_entitlements
 from .capability_probe import CapabilityProbe
 from .entities import Entities
 from .helpers import Helpers
@@ -61,7 +62,7 @@ class MicrosoftSecurityClient(
             transport = Transport(credential)
         self._api = transport
         self._allow_actions = allow_actions
-        self._entitlements = entitlements
+        self._entitlements = check_entitlements(entitlements)
 
     @property
     def allow_actions(self) -> bool:

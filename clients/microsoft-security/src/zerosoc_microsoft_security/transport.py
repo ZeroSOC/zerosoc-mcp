@@ -31,6 +31,31 @@ TOKEN_SKEW = 60
 
 
 @dataclass(frozen=True)
+class Page:
+    """One page of a collection."""
+
+    url: str | None
+    """The next link that fetched it; None for the first request."""
+    items: list[Any]
+
+
+@dataclass(frozen=True)
+class Collected:
+    """The pages of a collection read in one go, and where reading stopped."""
+
+    pages: tuple[Page, ...]
+    next_link: str | None
+    """The link reading stopped before: the collection goes on past it. None where it ended."""
+    stopped: bool
+    """Reading stopped at the page ceiling, with neither the limit reached nor the collection
+    ended: what was read is not all there is, and the next link may lead nowhere new."""
+
+    @property
+    def items(self) -> list[Any]:
+        return [item for page in self.pages for item in page.items]
+
+
+@dataclass(frozen=True)
 class Api:
     name: str
     base_url: str
@@ -133,17 +158,44 @@ class Transport:
         )
 
     async def collect(
-        self, api: Api, path: str, *, params: Mapping[str, Param] | None = None, limit: int
+        self,
+        api: Api,
+        path: str,
+        *,
+        params: Mapping[str, Param] | None = None,
+        limit: int,
+        max_pages: int | None = None,
     ) -> list[Any]:
-        """The `value` items of a collection, following `@odata.nextLink` until `limit` is reached."""
-        items: list[Any] = []
+        """The `value` items of a collection, following `@odata.nextLink` until `limit` is reached,
+        or `max_pages` pages were read; `collected` says which."""
+        found = await self.collected(api, path, params=params, limit=limit, max_pages=max_pages)
+        return found.items[:limit]
+
+    async def collected(
+        self,
+        api: Api,
+        path: str,
+        *,
+        params: Mapping[str, Param] | None = None,
+        limit: int,
+        max_pages: int | None = None,
+    ) -> Collected:
+        """The pages of a collection, following `@odata.nextLink` until at least `limit` items
+        are read, the collection ends, or `max_pages` pages were read (no ceiling when None). The
+        last page is kept whole, so a caller can tell a full collection from one cut at `limit`."""
+        pages: list[Page] = []
+        url: str | None = None
         page = await self.request(api, "GET", path, params=params)
         while True:
-            items.extend(page.get("value") or [])
-            next_link = page.get("@odata.nextLink")
-            if not next_link or len(items) >= limit:
-                return items[:limit]
-            page = await self.follow(api, str(next_link), path)
+            pages.append(Page(url, list(page.get("value") or [])))
+            found = page.get("@odata.nextLink")
+            next_link = str(found) if found else None
+            if next_link is None or sum(len(p.items) for p in pages) >= limit:
+                return Collected(tuple(pages), next_link, stopped=False)
+            if max_pages is not None and len(pages) >= max_pages:
+                return Collected(tuple(pages), next_link, stopped=True)
+            url = next_link
+            page = await self.follow(api, next_link, path)
 
     async def follow(self, api: Api, next_link: str, path: str) -> JsonObject:
         """GET a next link, only on the API's own host: the bearer token goes nowhere else."""

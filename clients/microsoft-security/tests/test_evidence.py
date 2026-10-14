@@ -4,6 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from zerosoc_microsoft_security import evidence
+from zerosoc_microsoft_security.client import OPERATIONS
 from zerosoc_microsoft_security.evidence import inventory
 
 KEY = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run"
@@ -311,3 +313,16 @@ def test_the_same_registry_value_on_two_devices_is_two_entities_for_the_skills_s
 
     result = inventory([alert(1), alert(2)])
     assert result["countsByType"] == {"device": 2, "registry": 2}
+
+
+def test_the_entity_count_is_described_as_a_reproduction_never_as_the_source_count() -> None:
+    """entityCount is the length of the list this module builds, with the identity rule of the
+    skills' evidence_inventory.py. It matched the portal on one incident checked by hand, so it
+    reproduces the portal's figure; it is not the source's own count. A consumer that passes it as
+    the source count compares the list with its own length and always finds it complete."""
+    tool = next(o for o in OPERATIONS if o.name == "get_incident_evidence").description
+    for text in (tool, evidence.__doc__ or ""):
+        flat = " ".join(text.split())
+        assert "reproduction of the portal" in flat
+        assert "not an independent check" in flat
+        assert "number to reconcile" not in flat and "equals the portal" not in flat

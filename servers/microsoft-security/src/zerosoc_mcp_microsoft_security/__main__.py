@@ -13,7 +13,10 @@ from .server import ALLOW_ACTIONS, build_server, settings_from, warm_up
 
 
 def main() -> None:
-    settings = settings_from(os.environ)
+    try:
+        settings = settings_from(os.environ)
+    except ValueError as error:  # a configuration the operator must correct, not a crash
+        sys.exit(f"error: {error}")
     client = MicrosoftSecurityClient(
         settings.credential_or_placeholder(),
         allow_actions=settings.allow_actions,

@@ -6,7 +6,7 @@ from typing import Annotated, Any
 
 from pydantic import Field
 
-from .capabilities import TABLE_ENTITLEMENTS
+from .capabilities import TABLE_ENTITLEMENTS, entitlement_stated
 from .operations import operation
 from .surface import Surface, top
 from .transport import GRAPH, JsonObject
@@ -103,8 +103,8 @@ class Hunting(Surface):
         DeviceNetworkEvents, DeviceFileEvents, DeviceRegistryEvents, DeviceLogonEvents, DeviceEvents,
         IdentityLogonEvents, IdentityDirectoryEvents, EmailEvents, EmailUrlInfo, UrlClickEvents and
         CloudAppEvents. Which tables hold data depends on the tenant's licences: an empty result
-        from a table that defender_get_capabilities reports as empty or not exposed is a visibility
-        gap, not a finding and not a permissions problem. The sensor records no creation event for
+        from a table that defender_get_capabilities reports as empty, undeclared, unlicensed or not
+        exposed is a visibility gap, not a finding and not a permissions problem. The sensor records no creation event for
         some processes (services started before it, some short-lived instances): a process absent
         from DeviceProcessEvents may still be there as the InitiatingProcessId and
         InitiatingProcessCreationTime of other events, so look there before concluding it did not
@@ -177,11 +177,12 @@ class Hunting(Surface):
     def _entitlement_note(self) -> str:
         """What the deployment declared about the feature that writes the table."""
         entitlement = TABLE_ENTITLEMENTS[DISRUPTION_TABLE]
-        if self._entitlements is None:
+        stated = entitlement_stated(entitlement, self._entitlements)
+        if stated is None:
             return (
                 f"undeclared: the deployment did not say whether it has {entitlement}, which is"
                 " what writes this table, so an empty answer cannot be read either way"
             )
-        if entitlement in self._entitlements:
+        if stated:
             return f"{entitlement} is declared: the table is written when the feature acts"
         return f"{entitlement} is not among the declared entitlements: the feature is stated absent"

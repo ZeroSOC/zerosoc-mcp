@@ -10,7 +10,14 @@ import httpx
 import jsonschema
 import pytest
 from defender_fakes import RoleCredential, Script
-from zerosoc_microsoft_security.capabilities import CLASS_BINDINGS, DATA_SOURCES
+from zerosoc_microsoft_security.capabilities import (
+    ACTING_TABLES,
+    CLASS_BINDINGS,
+    DATA_SOURCES,
+    ENTITLEMENT_FAMILIES,
+    ENTITLEMENTS,
+    TABLE_ENTITLEMENTS,
+)
 from zerosoc_microsoft_security.client import OPERATIONS, MicrosoftSecurityClient
 from zerosoc_microsoft_security.hunting import HUNTING_TABLES
 from zerosoc_microsoft_security.manifest import manifest
@@ -167,7 +174,7 @@ async def test_a_defender_for_business_tenant_has_alert_evidence_and_no_hunting_
         assert sources[hunting_source] is False, hunting_source
     for alert_source in ("Anti-virus / anti-malware", "User-reported phishing mailbox"):
         assert sources[alert_source] is True, alert_source
-    assert "DeviceProcessEvents is exposed but returned no rows" in notes["EDR"]
+    assert "DeviceProcessEvents holds no rows" in notes["EDR"]
     assert "alert evidence" in notes["EDR"]
     assert "EmailEvents is not exposed" in notes["Email gateway logs"]
 
@@ -604,9 +611,133 @@ async def test_a_declaration_that_leaves_an_entitlement_out_states_its_absence()
 
 
 async def test_a_table_no_licence_gates_is_untouched_by_the_declaration() -> None:
-    """Most tables are written by ordinary traffic, where an empty answer means the traffic did not
-    occur. The entitlement machinery must not reach them."""
+    """A table written at every tier is read as it answers: the entitlement machinery must not
+    reach it."""
     for declared in (None, frozenset(), frozenset({"endpoint_p2"})):
         binding = await defender_for_business(entitlements=declared).get_capabilities()
-        assert binding["probe"]["checks"]["hunting:DeviceProcessEvents"]["status"] == "empty"
-        assert binding["data_sources"]["EDR"] is False
+        check = binding["probe"]["checks"]["hunting:DeviceTvmSoftwareInventory"]
+        assert check == {"status": "empty", "detail": ""}
+
+
+def business_premium(**overrides: Any) -> MicrosoftSecurityClient:
+    """Hunting answers and every table resolves. The directory snapshot, vulnerability management
+    and the alert tables hold rows; the device event tables and the email tables hold none, because
+    the licence does not write them, not because nothing happened."""
+    return tenant(
+        tables_with_rows={
+            "AlertInfo",
+            "AlertEvidence",
+            "IdentityInfo",
+            "DeviceTvmSoftwareInventory",
+            "DeviceTvmSoftwareVulnerabilities",
+        },
+        **overrides,
+    )
+
+
+def test_the_tables_a_licence_gates_are_probed_tables_and_known_entitlements() -> None:
+    assert set(TABLE_ENTITLEMENTS) <= set(HUNTING_TABLES)
+    assert set(TABLE_ENTITLEMENTS.values()) <= set(ENTITLEMENTS)
+    assert ACTING_TABLES.issubset(TABLE_ENTITLEMENTS)
+    for table in ("DeviceProcessEvents", "DeviceNetworkEvents", "DeviceInfo", "EmailEvents"):
+        assert table in TABLE_ENTITLEMENTS, table
+    for table in ("IdentityInfo", "DeviceTvmSoftwareInventory", "AlertEvidence"):
+        assert table not in TABLE_ENTITLEMENTS, table
+
+
+async def test_an_empty_device_or_email_table_is_unavailable_with_the_reason() -> None:
+    """On a licence that writes no device events and no email tables, those tables resolve and
+    answer nothing. Read as empty they would say the activity did not happen; the probe cannot
+    tell that from a licence that does not write them, so it records them unavailable and says
+    why, and the binding falls back where it can."""
+    binding = await business_premium().get_capabilities()
+
+    checks = binding["probe"]["checks"]
+    for table, entitlement in (
+        ("DeviceProcessEvents", "endpoint_p2"),
+        ("DeviceNetworkEvents", "endpoint_p2"),
+        ("EmailEvents", "office365_p2"),
+    ):
+        check = checks[f"hunting:{table}"]
+        assert check["status"] == "undeclared", table
+        assert entitlement in check["detail"] and "cannot be read" in check["detail"], table
+    assert checks["hunting:IdentityInfo"]["status"] == "available"
+
+    sources, notes = binding["data_sources"], binding["data_source_notes"]
+    assert sources["EDR"] is False and sources["Email gateway logs"] is False
+    assert "no source reports to the table" in notes["EDR"] and "alert evidence" in notes["EDR"]
+    assert "office365_p2" in notes["Email gateway logs"]
+    capabilities = binding["capabilities"]
+    assert capabilities["telemetry.endpoint"]["tool"] == (
+        "mcp:defender-xdr/defender_get_incident_evidence"
+    )
+    assert "telemetry.email" not in capabilities
+    assert "EmailEvents" in binding["probe"]["unbound"]["telemetry.email"]
+    assert (
+        capabilities["identity.directory"]["tool"] == "mcp:defender-xdr/defender_run_hunting_query"
+    )
+    jsonschema.validate(binding, SCHEMA)
+
+
+async def test_a_declaration_without_the_licence_states_the_tables_unlicensed() -> None:
+    binding = await business_premium(entitlements=frozenset()).get_capabilities()
+
+    check = binding["probe"]["checks"]["hunting:DeviceProcessEvents"]
+    assert check == {
+        "status": "unlicensed",
+        "detail": "endpoint_p2 is not among the declared entitlements",
+    }
+    assert "not licensed" in binding["data_source_notes"]["EDR"]
+
+
+async def test_a_declared_licence_with_empty_event_tables_is_still_no_source() -> None:
+    """Under the licence a device event table is written by every onboarded device as it runs, so
+    holding nothing says no device reported: a gap, not an answer. Only a table written when its
+    feature acts can answer with no rows."""
+    binding = await business_premium(
+        entitlements=frozenset({"endpoint_p2", "office365_p2"})
+    ).get_capabilities()
+
+    check = binding["probe"]["checks"]["hunting:DeviceProcessEvents"]
+    assert check["status"] == "empty"
+    assert "endpoint_p2 is declared" in check["detail"]
+    assert binding["data_sources"]["EDR"] is False
+    assert binding["capabilities"]["telemetry.endpoint"]["tool"] == (
+        "mcp:defender-xdr/defender_get_incident_evidence"
+    )
+    disruption = binding["probe"]["checks"]["hunting:DisruptionAndResponseEvents"]
+    assert disruption["status"] == "entitled_no_rows"
+
+
+async def test_a_gated_table_with_rows_answers_whatever_was_declared() -> None:
+    binding = await full_telemetry(entitlements=frozenset()).get_capabilities()
+
+    assert binding["probe"]["checks"]["hunting:DeviceProcessEvents"]["status"] == "available"
+    assert binding["data_sources"]["EDR"] is True
+
+
+async def test_a_declaration_speaks_only_for_the_families_it_names() -> None:
+    """A deployment that declared endpoint_p2 before the email tables were gated said nothing about
+    them: they stay undeclared rather than become unlicensed behind its back. Only a declaration
+    that names some tier of a family states the others of that family absent."""
+    endpoint_only = await business_premium(
+        entitlements=frozenset({"endpoint_p2"})
+    ).get_capabilities()
+    checks = endpoint_only["probe"]["checks"]
+    assert checks["hunting:EmailEvents"]["status"] == "undeclared"
+    assert checks["hunting:DeviceProcessEvents"]["status"] == "empty"
+    assert checks["hunting:DisruptionAndResponseEvents"]["status"] == "entitled_no_rows"
+
+    lower_tiers = frozenset({"endpoint_p1", "office365_p1"})
+    stated = await business_premium(entitlements=lower_tiers).get_capabilities()
+    for table in ("EmailEvents", "DeviceProcessEvents", "DisruptionAndResponseEvents"):
+        assert stated["probe"]["checks"][f"hunting:{table}"]["status"] == "unlicensed", table
+
+
+def test_every_entitlement_belongs_to_a_family_and_unknown_ids_are_refused() -> None:
+    assert set(ENTITLEMENT_FAMILIES) == set(ENTITLEMENTS)
+    with pytest.raises(ValueError, match="endpoint_p2") as refused:
+        MicrosoftSecurityClient(
+            transport=Transport(RoleCredential([], [])), entitlements=frozenset({"endpoint_p3"})
+        )
+    assert "endpoint_p3" in str(refused.value)

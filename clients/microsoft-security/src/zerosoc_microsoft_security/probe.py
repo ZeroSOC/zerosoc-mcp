@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Literal
 
 from .capabilities import (
+    ACTING_TABLES,
     CLASS_BINDINGS,
     DATA_SOURCES,
     MANUAL_CHECKS,
@@ -23,6 +24,7 @@ from .capabilities import (
     SOURCE_PROFILES,
     TABLE_ENTITLEMENTS,
     Option,
+    entitlement_stated,
     operation_ref,
     tool_ref,
     version,
@@ -119,21 +121,35 @@ class ProbeResult:
         return found
 
     def _entitled(self, table: str, found: Check) -> Check:
-        """An empty table that only a licensed feature writes says nothing on its own.
+        """An empty table that only an entitlement writes says nothing on its own.
 
         Its schema resolves at every tier and the query succeeds either way, so no observation
-        separates a tenant that lacks the feature from one where the feature has not acted. What
-        the deployment declared decides it, and where it declared nothing the honest answer is that
-        nobody knows — which is a visibility gap, not an absence.
+        separates a tenant that lacks the entitlement from one where nothing wrote to the table.
+        What the deployment declared decides it, and where it declared nothing the honest answer is
+        that nobody knows — which is a visibility gap, not an absence. Declared, an empty table is
+        an answer only where it is written when a feature acts (`ACTING_TABLES`); a device or email
+        table under its licence holds nothing only when no source reports to it, which is a gap.
         """
         entitlement = TABLE_ENTITLEMENTS.get(table)
         if entitlement is None:
-            return found  # written by ordinary traffic: empty means the traffic did not occur
-        if self.entitlements is None:
-            return Check("undeclared", f"no deployment entitlement was declared for {entitlement}")
-        if entitlement in self.entitlements:
+            return found  # no tier is established as gating it: read as it answered
+        stated = entitlement_stated(entitlement, self.entitlements)
+        if stated is None:
+            unknown = (
+                "the feature is absent or has not acted"
+                if table in ACTING_TABLES
+                else "the tenant lacks it or no source reports to the table"
+            )
+            return Check(
+                "undeclared",
+                f"no deployment entitlement was declared for {entitlement}: whether {unknown}"
+                " cannot be read from the API",
+            )
+        if not stated:
+            return Check("unlicensed", f"{entitlement} is not among the declared entitlements")
+        if table in ACTING_TABLES:
             return Check("entitled_no_rows", f"{entitlement} is declared; the table holds no rows")
-        return Check("unlicensed", f"{entitlement} is not among the declared entitlements")
+        return Check("empty", f"{entitlement} is declared, yet no source reported to the table")
 
 
 async def run_probe(
@@ -315,12 +331,11 @@ def _why(check_id: str, check: Check) -> str:
     kind, _, subject = check_id.partition(":")
     if kind == "hunting":
         return {
-            "empty": f"{subject} is exposed but returned no rows in the last 30 days: not licensed"
-            " for this tenant, or no onboarded source",
-            "undeclared": f"{subject} is written only by a licensed feature and holds no rows, and"
-            " this deployment declared no entitlement: whether the feature is absent or simply has"
-            " not acted cannot be read from the API. Declare the entitlement, or answer it from the"
-            " portal.",
+            "empty": f"{subject} is exposed but returned no rows in the last 30 days: "
+            + (check.detail or "not licensed for this tenant, or no onboarded source"),
+            "undeclared": f"{subject} holds no rows, and {check.detail}. Declare the entitlement,"
+            " or answer it from the portal.",
+            "unlicensed": f"{subject} is not licensed for this tenant ({check.detail})",
             "not_exposed": f"{subject} is not exposed at this licence level",
             "forbidden": f"{subject} could not be read: the application permission"
             " ThreatHunting.Read.All is missing or not consented",

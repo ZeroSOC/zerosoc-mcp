@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -11,9 +12,13 @@ import pytest
 from defender_fakes import Script
 from zerosoc_microsoft_security.audit_search import (
     ACTIVITY_RECORD_TYPES,
+    ACTIVITY_SLACK_SECONDS,
     ALERT_RECORD_TYPE,
+    CONNECTION_GAP_SECONDS,
+    CONNECTION_VECTOR,
     SAME_REQUEST_LIMIT,
     AuditingDisabledError,
+    connection_groups,
     fold_alert_records,
 )
 from zerosoc_microsoft_security.client import MicrosoftSecurityClient
@@ -451,17 +456,19 @@ def test_the_job_is_part_of_the_activity_as_json() -> None:
     assert shown["sameRequestCount"] == 1
 
 
-SERVICE = "NT SERVICE\ExampleService"
+SERVICE = r"NT SERVICE\ExampleService"
 SERVER = "EXAMPLE01 (15.21.0000.000)"
 
 
-def _connected(record: dict[str, Any], client: str, *, actor: str = SERVICE) -> dict[str, Any]:
+def _connected(
+    record: dict[str, Any], client: str, *, actor: str = SERVICE, server: str = SERVER
+) -> dict[str, Any]:
     """A record made one of the connection client opened to the server, by actor."""
     audit = {
         **record["auditData"],
         "UserId": actor,
         "ClientIP": client,
-        "OriginatingServer": SERVER,
+        "OriginatingServer": server,
     }
     return {**record, "auditData": audit}
 
@@ -503,7 +510,7 @@ def test_an_activity_carries_the_other_records_of_its_client_connection() -> Non
                 "70000000-0000-0000-0000-000000000004", "Set-Mailbox", "r-4", "2026-10-05T15:30:27"
             ),
             "[::1]:11880",
-            actor="NT SERVICE\Other",
+            actor=r"NT SERVICE\Other",
         ),
     ]
 
@@ -533,6 +540,87 @@ def test_an_address_without_a_port_names_no_connection() -> None:
     first, _ = _alert(records, REPEAT).activities
 
     assert (first.same_connection, first.same_connection_count) == ((), 0)
+
+
+def test_a_connection_outlives_a_build_change_and_ends_when_it_goes_quiet() -> None:
+    """The server's build suffix can change in the middle of one job, and the actor's spelling is
+    not the connection; time is. A record more than the window after the previous one of its
+    connection is a later connection on a reused port."""
+    quiet = CONNECTION_GAP_SECONDS + 1
+    records = [
+        *_by_connection("[::1]:11880"),
+        _connected(
+            _step(
+                "70000000-0000-0000-0000-000000000001", "Set-Mailbox", "r-1", "2026-10-05T15:30:21"
+            ),
+            "[::1]:11880",
+            actor=SERVICE.upper(),
+            server="EXAMPLE01 (15.21.0000.002)\r\n",
+        ),
+        _connected(
+            _step(
+                "70000000-0000-0000-0000-000000000002",
+                "Set-Mailbox",
+                "r-2",
+                f"2026-10-05T15:{30 + quiet // 60:02d}:{30 + quiet % 60:02d}",
+            ),
+            "[::1]:11880",
+        ),
+    ]
+
+    first, _ = _alert(records, REPEAT).activities
+
+    assert [r["Id"] for r in first.same_connection] == ["70000000-0000-0000-0000-000000000001"]
+    assert first.same_connection_count == 1
+
+
+def test_a_record_named_by_its_search_id_alone_still_carries_its_connection() -> None:
+    """The alert's pointer can name the record by the id the search gives it, with no `Id` in its
+    audit data: the connection is found from either."""
+    records = [
+        *_by_connection("[::1]:11880"),
+        _connected(
+            _step(
+                "70000000-0000-0000-0000-000000000001", "Set-Mailbox", "r-1", "2026-10-05T15:30:21"
+            ),
+            "[::1]:11880",
+        ),
+    ]
+    records = [
+        {**r, "auditData": {k: v for k, v in r["auditData"].items() if k != "Id"}}
+        if r["id"] == RAISING
+        else r
+        for r in records
+    ]
+
+    first, _ = _alert(records, REPEAT).activities
+
+    assert first.record is not None and "Id" not in first.record
+    assert [r["Id"] for r in first.same_connection] == ["70000000-0000-0000-0000-000000000001"]
+    assert first.same_connection_count == 1
+
+
+def test_a_connection_goes_quiet_within_the_reach_of_an_activity() -> None:
+    assert CONNECTION_GAP_SECONDS == ACTIVITY_SLACK_SECONDS
+
+
+def _vector() -> dict[str, Any]:
+    text = resources.files("zerosoc_microsoft_security").joinpath(CONNECTION_VECTOR).read_text()
+    found: dict[str, Any] = json.loads(text)
+    return found
+
+
+@pytest.mark.parametrize("case", _vector()["cases"], ids=lambda case: case["name"])
+def test_the_connection_key_meets_the_test_vector_it_ships(case: dict[str, Any]) -> None:
+    """The vector is in the package, so a consumer that keeps its own copy of the rule runs the
+    same records through it and expects the same groups."""
+    groups = connection_groups(case["records"])
+
+    assert [[r["Id"] for r in group] for group in groups] == case["groups"]
+
+
+def test_the_vector_states_the_window_the_rule_applies() -> None:
+    assert _vector()["window_seconds"] == CONNECTION_GAP_SECONDS
 
 
 async def test_the_data_plane_hands_back_every_activity_record_it_read(

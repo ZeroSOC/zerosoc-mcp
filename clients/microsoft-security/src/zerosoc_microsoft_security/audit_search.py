@@ -17,7 +17,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
@@ -53,9 +53,20 @@ RECORD_LIMIT = 20000
 SAME_REQUEST_LIMIT = 100
 """The other records of an activity's request, or of its connection, kept on it at most, oldest
 first: `AlertActivity.same_request_count` and `same_connection_count` say how many the search held."""
+CONNECTION_GAP_SECONDS = ACTIVITY_SLACK_SECONDS
+"""How long one client connection may go quiet: a record more than this after the previous record of
+its connection starts a new one. The same reach as an activity's: records this close belong to one
+piece of work. The commands of one job follow each other within seconds; a closed connection's port
+is reused, so the same address and port an hour later is another connection."""
+CONNECTION_VECTOR = "same_connection.vector.json"
+"""The test vector of `connection_groups`, shipped in this package: audit records in, groups out.
+A consumer with its own copy of the rule reads it with
+``importlib.resources.files("zerosoc_microsoft_security").joinpath(CONNECTION_VECTOR)``."""
 _PORT = re.compile(r"(?:^\[[^\]]+\]|^[^:\[\]]+):\d+$")
 """A client address that carries its port: `[::1]:11880`, `203.0.113.7:51544`. A bare IPv6
 address has colons and no brackets, and names no port."""
+_BUILD = re.compile(r"\s*\([\d.]+\)\s*$")
+"""The build a server name ends with, and what trails it: `EXAMPLE01 (15.20.8000.010)\\r\\n`."""
 
 Timestamp = Annotated[str, Field(description="UTC ISO 8601 timestamp, e.g. 2026-09-30T08:00:00Z.")]
 Names = Annotated[
@@ -111,10 +122,12 @@ class AlertActivity:
     same_request_count: int = 0
     """How many such records the search held, kept or not."""
     same_connection: tuple[JsonObject, ...] = ()
-    """The other records of the same type, actor, server and client connection (`ClientIP` with
-    its port) the same search returned, oldest first, at most `SAME_REQUEST_LIMIT`. A job can give
-    each command a request of its own; its commands still come over one connection to one server.
-    Empty when the record names no server or its client address carries no port."""
+    """The other records of the record's client connection the same search returned, oldest first,
+    at most `SAME_REQUEST_LIMIT`: same type, actor, server and client address with its port, none
+    more than `CONNECTION_GAP_SECONDS` after the one before (`connection_groups` documents the
+    key). A job can give each command a request of its own; its commands still come over one
+    connection to one server. Empty when the record names no server, no actor or no time, or its
+    client address carries no port."""
     same_connection_count: int = 0
     """How many such records the search held, kept or not."""
 
@@ -480,10 +493,17 @@ def fold_alert_records(records: list[JsonObject]) -> tuple[AlertPolicyAlert, ...
         by_id.update((i, record) for i in ids)
         if _text(audit.get("RequestId")):
             jobs.setdefault(_request(audit), []).append(audit)
-        if (connection := _connection(audit)) is not None:
-            jobs.setdefault(connection, []).append(audit)
         if record.get("operation") == "UserSubmission" and audit.get("SubmissionId") and ids:
             submissions[str(audit["SubmissionId"])] = ids[0]
+    audits = [record.get("auditData") or {} for record in records]
+    group_of = {id(a): group for group in connection_groups(audits) for a in group}
+    sessions = {
+        i: group_of[id(audit)]
+        for record, audit in zip(records, audits, strict=True)
+        if id(audit) in group_of
+        for i in (str(audit.get("Id") or ""), str(record.get("id") or ""))
+        if i
+    }
     grouped: dict[str, list[JsonObject]] = {}
     for record in records:
         audit = record.get("auditData") or {}
@@ -493,7 +513,8 @@ def fold_alert_records(records: list[JsonObject]) -> tuple[AlertPolicyAlert, ...
     alerts = [
         a
         for a in (
-            _alert(alert_id, rs, by_id, submissions, jobs) for alert_id, rs in grouped.items()
+            _alert(alert_id, rs, by_id, submissions, jobs, sessions)
+            for alert_id, rs in grouped.items()
         )
         if a
     ]
@@ -506,6 +527,7 @@ def _alert(
     by_id: dict[str, JsonObject],
     submissions: dict[str, str],
     jobs: dict[tuple[Any, ...], list[JsonObject]],
+    sessions: dict[str, list[JsonObject]],
 ) -> AlertPolicyAlert | None:
     ordered = sorted(records, key=lambda r: str(r.get("createdDateTime", "")))
     raised = next((r for r in ordered if r.get("operation") == "AlertTriggered"), None)
@@ -539,7 +561,7 @@ def _alert(
         activity_time=min(exact) if exact else _text(data.get("ts")),
         entities=entities,
         data=data,
-        activities=_activities(ordered, entities, by_id, submissions, jobs),
+        activities=_activities(ordered, entities, by_id, submissions, jobs, sessions),
     )
 
 
@@ -549,6 +571,7 @@ def _activities(
     by_id: dict[str, JsonObject],
     submissions: dict[str, str],
     jobs: dict[tuple[Any, ...], list[JsonObject]],
+    sessions: dict[str, list[JsonObject]],
 ) -> tuple[AlertActivity, ...]:
     """One activity per audit record the alert's pointers name; the raising pointer's comes first.
 
@@ -579,7 +602,7 @@ def _activities(
             continue
         target = (by_id.get(pointer) or {}).get("auditData")
         job = _same_request(target, jobs)
-        session = _same_connection(target, jobs)
+        session = _same_connection(pointer, target, sessions)
         repeat = bool(found) or raising is None
         found[pointer] = AlertActivity(
             record_id=pointer,
@@ -599,27 +622,71 @@ def _request(audit: JsonObject) -> tuple[Any, ...]:
     return (audit.get("RecordType"), str(audit.get("RequestId")))
 
 
+def connection_groups(records: Iterable[JsonObject]) -> list[list[JsonObject]]:
+    """Audit records (`auditData`) -> the records of each client connection, oldest first.
+
+    Records share a connection when they share the key and follow each other closely:
+
+    - **the record type** (`RecordType`), as text and trimmed, so a number and its digits match
+      and no two types do. The connection fields are each workload's own, and are only known to
+      mean one connection on the Exchange admin records a job writes, all of one type; the same
+      values on a record of another type are not taken to be the same connection.
+    - **the actor** (`UserId`), whitespace collapsed and case folded: an account name is matched
+      without regard to case.
+    - **the server** (`OriginatingServer`) without the build in parentheses that ends it, case
+      folded. The build can change in the middle of one job, and the job is still one.
+    - **the client address with its port** (`ClientIP`), case folded. An address without a port
+      names a host, not a connection.
+    - **time** (`CreationTime`): a record more than `CONNECTION_GAP_SECONDS` after the previous
+      record of its group starts a new group, wherever the day changes.
+
+    A record with no server, no actor or no time, or whose address carries no port, is in no group.
+    The groups are ordered by their first record; ties of time are broken by `Id`. `CONNECTION_VECTOR`
+    is the test vector of this rule.
+    """
+    keyed: dict[tuple[Any, ...], list[tuple[datetime, JsonObject]]] = {}
+    for audit in records:
+        key, at = _connection(audit), _when(audit.get("CreationTime"))
+        if key is not None and at is not None:
+            keyed.setdefault(key, []).append((at, audit))
+    groups: list[tuple[datetime, list[JsonObject]]] = []
+    gap = timedelta(seconds=CONNECTION_GAP_SECONDS)
+    for timed in keyed.values():
+        timed.sort(key=lambda pair: (pair[0], str(pair[1].get("Id", ""))))
+        previous: datetime | None = None
+        for at, audit in timed:
+            if previous is None or at - previous > gap:
+                groups.append((at, []))
+            groups[-1][1].append(audit)
+            previous = at
+    groups.sort(key=lambda pair: (pair[0], str(pair[1][0].get("Id", ""))))
+    return [group for _, group in groups]
+
+
 def _connection(audit: JsonObject) -> tuple[Any, ...] | None:
-    """The record's client connection: its type, actor, server and client address with its port;
-    None when it names no server, no actor, or an address with no port."""
-    client = str(audit.get("ClientIP") or "").strip()
-    server = _text(audit.get("OriginatingServer"))
-    actor = _text(audit.get("UserId"))
+    """The key of the record's client connection (`connection_groups`); None when it names no
+    server, no actor, or an address with no port."""
+    client = str(audit.get("ClientIP") or "").strip().casefold()
+    server = _BUILD.sub("", str(audit.get("OriginatingServer") or "")).strip().casefold()
+    actor = " ".join(str(audit.get("UserId") or "").split()).casefold()
     if not (server and actor and _PORT.search(client)):
         return None
-    return ("connection", audit.get("RecordType"), actor, server, client)
+    return (str(audit.get("RecordType") or "").strip(), actor, server, client)
+
+
+def _when(value: Any) -> datetime | None:
+    try:
+        return _instant(str(value)) if value else None
+    except ValueError:
+        return None
 
 
 def _same_connection(
-    target: JsonObject | None, jobs: dict[tuple[Any, ...], list[JsonObject]]
+    pointer: str, target: JsonObject | None, sessions: dict[str, list[JsonObject]]
 ) -> list[JsonObject]:
-    """The other records of the target's client connection, oldest first; none when it has none."""
-    connection = _connection(target or {})
-    if connection is None:
-        return []
-    own = (target or {}).get("Id")
-    found = [r for r in jobs.get(connection, []) if r.get("Id") != own]
-    return sorted(found, key=lambda r: (str(r.get("CreationTime", "")), str(r.get("Id", ""))))
+    """The other records of the client connection of the record the pointer names (by its `Id` or
+    the search's id), oldest first; none when it has none."""
+    return [r for r in sessions.get(pointer, []) if r is not target] if target else []
 
 
 def _same_request(

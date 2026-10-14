@@ -1,6 +1,6 @@
 {
   "server": "defender-xdr",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "packages": {
     "client": "zerosoc-microsoft-security",
     "mcp_server": "zerosoc-mcp-microsoft-security"
@@ -64,7 +64,7 @@
           "api:graph.incidents"
         ],
         "requires_any": [],
-        "notes": "open and closed incidents and their entities; the 90-day retrospective sweep runs here, never through telemetry"
+        "notes": "open and closed incidents and their entities; the 90-day retrospective sweep runs here, never through telemetry, read on from nextSkip until hasMore is false"
       }
     ],
     "malware.repository": [

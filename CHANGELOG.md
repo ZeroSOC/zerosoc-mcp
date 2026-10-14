@@ -2,6 +2,68 @@
 
 ## Unreleased
 
+## microsoft-security 0.6.0 (2026-10-14)
+
+**Changed**
+- `defender_list_incidents` pages (#38). It returned at most 50 incidents with no way to read on,
+  so a 90-day retrospective sweep bound to it stopped at 50 without saying so. It now takes `skip`
+  and answers `value`, `skip`, `top`, `returned`, `hasMore`, `nextSkip` and `truncated`; a sweep
+  reads on with `skip = nextSkip` until `hasMore` is false. `nextSkip` is the service's own
+  position (the next link's `$skip`, or the position of the first incident not returned), so a
+  caller does not drift by counting what it was given. The listing asks for one incident more than
+  it returns, so a full page is not read as the end where the service sends no next link (it
+  documents next links for paging, not for a request that sets `$top`); at the 50-incident page
+  size it asks for the next incident alone. It follows a short page's next link to fill `top`, at
+  most `MAX_INCIDENT_PAGES` pages: where the service offers more but no position past the
+  request's, `truncated` is true, `hasMore` false and a `note` says the listing is incomplete, so
+  asking again is never invited. The service documents no sort order beyond its own (newest
+  first), so incidents created in the same instant can straddle two pages: a sweep drops an
+  incident it has already seen. The parameters it had are unchanged; the raw `@odata.nextLink` is
+  no longer passed through.
+- `Transport.collected`: the pages of a collection with the link that fetched each, the link reading
+  stopped before, and whether it stopped at a page ceiling. `Transport.collect` wraps it and takes
+  the same optional ceiling (`max_pages`); its existing callers keep none.
+- The capability probe records the device and email hunting tables as unavailable, with the reason,
+  when they hold no rows and the licence that writes them is not declared (#38). On a Microsoft 365
+  Business Premium tenant with onboarded devices and mail, hunting answers and the directory,
+  vulnerability-management and alert tables hold rows, while `DeviceInfo`, the `Device*Events`
+  tables, the `Email*` tables and `UrlClickEvents` hold none: Defender for Business and Defender
+  for Office 365 Plan 1 do not write them. The probe reported them `empty`, which reads as activity
+  that did not happen. They are now in `TABLE_ENTITLEMENTS`, on `endpoint_p2` and a new
+  `office365_p2`: with nothing declared such a table is `undeclared` (the API cannot tell a missing
+  licence from no source reporting), stated absent it is `unlicensed`, and the binding falls back
+  where it can (`telemetry.endpoint` to alert evidence) with the reason in its notes. With the
+  licence declared an empty device or email table stays `empty`, a gap: only a table written when
+  its feature acts (`ACTING_TABLES`, the attack disruption table) answers with no rows
+  (`entitled_no_rows`).
+- Entitlements come in families (`ENTITLEMENT_FAMILIES`), each with a tier that states Plan 2
+  absent: `endpoint_p2` and `endpoint_p1`, `office365_p2` and `office365_p1`. A declaration speaks
+  only for the families it names an id of, so a deployment that declared `endpoint_p2` alone leaves
+  the email tables undeclared rather than stated unlicensed; an empty declaration still states that
+  the tenant has none. A Business Premium tenant declares `endpoint_p1,office365_p1`. An unknown id
+  is refused: the client raises `ValueError` naming the known ids, and the server stops at
+  startup.
+
+**Fixed**
+- `sameConnection` keeps one job's records together (#38). It grouped records on the raw server
+  name, build suffix included, with no time bound: the build suffix can change in the middle of one
+  job, which split the job and undercounted it, and the same address and port hours later counted
+  as the same connection. `connection_groups` documents the key: record type (as text, trimmed),
+  actor (whitespace collapsed, case folded), server without its build suffix, client address with
+  its port, and a record more than `CONNECTION_GAP_SECONDS` (`ACTIVITY_SLACK_SECONDS`, 300) after
+  the previous one of its group starts a new group. The record type stays in the key: the
+  connection fields are each workload's own and are only known to mean one connection on the
+  Exchange admin records a job writes. A record is found in its connection by its `Id` or by the
+  search's own id. The rule's test
+  vector ships in the package, `same_connection.vector.json` (`CONNECTION_VECTOR`), for a consumer
+  that keeps its own copy of the rule.
+- `entityCount` is described as what it is (#38): the length of the de-duplicated evidence list,
+  built with the identity rule of the skills' `evidence_inventory.py`, a reproduction of the
+  portal's count that matched it on one incident checked by hand. The tool description and the
+  evidence module said it equals the portal's count and is the number to reconcile; passed back as
+  the source's count it compares the list with its own length, so it is not an independent check
+  of the extraction.
+
 ## microsoft-security 0.5.1 (2026-10-13)
 
 **Added**
