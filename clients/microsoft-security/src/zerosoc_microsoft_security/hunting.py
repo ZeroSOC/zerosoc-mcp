@@ -103,8 +103,8 @@ class Hunting(Surface):
         DeviceNetworkEvents, DeviceFileEvents, DeviceRegistryEvents, DeviceLogonEvents, DeviceEvents,
         IdentityLogonEvents, IdentityDirectoryEvents, EmailEvents, EmailUrlInfo, UrlClickEvents and
         CloudAppEvents. Which tables hold data depends on the tenant's licences: an empty result
-        from a table that defender_get_capabilities reports as empty or not exposed is a visibility
-        gap, not a finding and not a permissions problem. The sensor records no creation event for
+        from a table that defender_get_capabilities reports as empty, undeclared, unlicensed or not
+        exposed is a visibility gap, not a finding and not a permissions problem. The sensor records no creation event for
         some processes (services started before it, some short-lived instances): a process absent
         from DeviceProcessEvents may still be there as the InitiatingProcessId and
         InitiatingProcessCreationTime of other events, so look there before concluding it did not

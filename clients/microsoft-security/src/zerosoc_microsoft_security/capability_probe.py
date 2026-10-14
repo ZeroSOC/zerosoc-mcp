@@ -35,9 +35,10 @@ class CapabilityProbe(Surface):
         investigating. It checks which hunting tables hold data, which are exposed but empty and
         which the licence does not expose at all, which APIs answer, and which application
         permissions are granted, so an empty query result is read correctly: a visibility gap, a
-        missing licence or a missing permission. A table only a licensed feature writes is
-        reported against the entitlement the deployment declared, because no query tells a
-        tenant that lacks the feature from one where it has not acted. Returns `capabilities` (capability class to tool),
+        missing licence or a missing permission. A table only a licence writes (the device event
+        and email tables, attack disruption's table) that holds no rows is reported against the
+        entitlement the deployment declared, because no query tells a tenant that lacks the
+        licence from one where nothing wrote to the table; undeclared, it is unavailable. Returns `capabilities` (capability class to tool),
         `data_sources` (each playbook data source, available or not, with the reason in
         `data_source_notes`) and `probe` (every check, the granted roles, the classes left unbound
         and the checks that stay manual). The probe only reads; the result is kept until refresh."""

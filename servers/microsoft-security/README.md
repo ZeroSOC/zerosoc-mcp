@@ -86,7 +86,7 @@ Every tool that returns a collection is bounded: a conservative default and a ha
 
 ### What an investigation needs first
 
-- **`defender_get_capabilities`** answers from a probe the server runs as it starts (and again on `refresh`): which hunting tables hold data (`available`), which are exposed but `empty`, which the licence does `not_exposed`, which APIs answer, which refuse because the service is `unlicensed` or inactive in the tenant, which refuse because a permission is missing (`forbidden`), and which application permissions are granted. An empty query result can then be read for what it is: a visibility gap, a missing licence or a missing permission. The result is a ZeroSOC capability binding (see below).
+- **`defender_get_capabilities`** answers from a probe the server runs as it starts (and again on `refresh`): which hunting tables hold data (`available`), which are exposed but `empty`, which the licence does `not_exposed`, which a licence gates and hold no rows (`undeclared` or `unlicensed`, see below), which APIs answer, which refuse because the service is `unlicensed` or inactive in the tenant, which refuse because a permission is missing (`forbidden`), and which application permissions are granted. An empty query result can then be read for what it is: a visibility gap, a missing licence or a missing permission. The result is a ZeroSOC capability binding (see below).
 - **`defender_get_incident_evidence`** returns the evidence of an incident the way the portal shows it: it pages through every alert, flattens the evidence into one row per evidence item, joins each row to its device, decodes encoded commands, gives every time in UTC, and returns `entityCount`, the length of that de-duplicated list. It is a reproduction of the portal's count of evidence items (it matched on a test incident checked by hand, on every type), not the source's own count, so it is not an independent check of the extraction: a count to check it against is read from the portal. Where the source lists one process twice because two alerts describe it differently, the rows are linked (`instance`, `sameProcess`) and not merged, so no verdict is lost. An incident too large to read whole says so (`alertsTruncated`).
 - **Writes follow merges.** A comment or an update sent to an incident that was merged into another lands on the master incident, and the result says so in `redirectedFrom`.
 
@@ -120,17 +120,20 @@ So the integration does two things. **`defender_get_disruption_events`** reads t
 
 ### Telling an entitlement from an empty table
 
-Most hunting tables are written by ordinary traffic, so an empty answer from one means that traffic did not occur. A few are written only by a licensed feature, and for those an empty answer says nothing on its own: **the table's schema resolves at every licensing tier and the query succeeds either way**, so a tenant that lacks the feature and a tenant where the feature has not acted are indistinguishable from this API. `DisruptionAndResponseEvents` is the clearest case — it is written only when automatic attack disruption acts, which on an entitled tenant is most days not at all.
+Some hunting tables are written only under a licence, and for those an empty answer says nothing on its own: **the table's schema resolves at every licensing tier and the query succeeds either way**, so a tenant that lacks the licence and a tenant where nothing wrote to the table are indistinguishable from this API. Two kinds are gated:
+
+- **The device and email tables.** On a Microsoft 365 Business Premium tenant with onboarded devices and mail, hunting answers and the directory, vulnerability-management and alert tables hold rows, while `DeviceInfo`, the `Device*Events` tables, the `Email*` tables and `UrlClickEvents` hold none: Defender for Business and Defender for Office 365 Plan 1 do not write them. Read as empty, they would say that no process ran and no mail arrived. They are written under `endpoint_p2` and `office365_p2`, by every device or mailbox the licence covers, so even with the licence declared an empty one is a gap (no source reported), never a quiet tenant.
+- **`DisruptionAndResponseEvents`**, written only when automatic attack disruption acts, which on an entitled tenant is most days not at all. With the licence declared, an empty table is an answer: the feature did not act.
 
 Nor can the entitlement be looked up. Where the capability arrives as a Microsoft 365 licence, `subscribedSkus` names it; where the same capability arrives as Defender for Cloud's Defender for Servers plan, it is billed per Azure resource and appears in no SKU list, so reading it would mean a different API, a different credential and a different scope.
 
 So the deployment declares it:
 
 ```
-DEFENDER_MCP_ENTITLEMENTS=endpoint_p2
+DEFENDER_MCP_ENTITLEMENTS=endpoint_p2,office365_p2
 ```
 
-Setting the variable states the **complete** set: an entitlement left out is stated to be absent. Leaving it unset states nothing, and the probe then reports such a source as `undeclared` — neither present nor absent — so a caller records a visibility gap and reads the portal, instead of concluding from an empty result that nothing happened. The three outcomes appear in `probe.checks` as `entitled_no_rows`, `unlicensed` and `undeclared`.
+Setting the variable states the **complete** set: an entitlement left out is stated to be absent. Leaving it unset states nothing, and the probe then reports an empty gated table as `undeclared` — neither present nor absent — so a caller records a visibility gap and reads the portal, instead of concluding from an empty result that nothing happened. The outcomes appear in `probe.checks` with the reason in `detail`: `undeclared` and `unlicensed` (the table is unavailable, and the classes and data sources it would serve are not bound to it: endpoint telemetry falls back to alert evidence), `empty` for a declared device or email table that no source wrote to, and `entitled_no_rows` for the disruption table.
 
 ## Safe by default: response-action gating
 
