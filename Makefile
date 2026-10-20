@@ -1,7 +1,12 @@
 .PHONY: sync format lint typecheck security audit test manifest manifest-check check ci
 
+# Every member's sources: a new client or server is picked up by being a directory.
+SRC := $(wildcard clients/*/src servers/*/src)
+empty :=
+space := $(empty) $(empty)
+
 sync:
-	uv sync --locked
+	uv sync --locked --all-packages
 
 format:
 	uv run ruff format .
@@ -11,10 +16,10 @@ lint:
 	uv run ruff check .
 
 typecheck:
-	uv run mypy
+	MYPYPATH=$(subst $(space),:,$(SRC)) uv run mypy $(SRC)
 
 security:
-	uv run bandit -q -r clients/microsoft-security/src servers/microsoft-security/src
+	uv run bandit -q -r $(SRC)
 
 audit:
 	uv export --locked --no-dev --no-emit-workspace -o requirements-audit.txt -q

@@ -21,6 +21,7 @@ For each security technology we pick exactly one engagement mode:
 | Technology | Mode | Status | Server / upstream |
 |---|---|---|---|
 | Microsoft security (Defender XDR, Defender for Endpoint, Entra ID, Purview Audit) | **Build** | Active | [`servers/microsoft-security`](servers/microsoft-security/) |
+| AbuseIPDB (IP reputation, blacklist) | **Adopt** | Active | Agents: AbuseIPDB's own [`mcp-server-abuseipdb`](https://github.com/AbuseIPDB/AbuseIPDB-MCP). Hosts calling from code: the tool client [`clients/abuseipdb`](clients/abuseipdb/) (check with cache and quota, blacklist matched locally) |
 | Google SecOps (Chronicle) | Contribute | Planned | Official server exists but is partial; upstream contributions being scoped |
 | CrowdStrike Falcon | Adopt | Evaluating | Official/third-party options under evaluation |
 | Microsoft Sentinel | — | Candidate | Not yet scoped |
@@ -29,7 +30,7 @@ Want a technology covered? [Open an issue](../../issues) with the vendor, the AP
 
 ## One technology, two parts
 
-Every integration built here ships as a **tool client** (`clients/<technology>/`, a typed Python library) and an **MCP server** (`servers/<technology>/`) that is a thin wrapper over it. Agents use the server from any MCP host; programs call the client directly where the path must be deterministic. Each API call is implemented once, so both see the same behaviour. Each server also ships a **capabilities manifest** and, where the technology allows it, a **capability probe** that writes a ZeroSOC capability binding file for what a given tenant exposes.
+Every integration built here ships as a **tool client** (`clients/<technology>/`, a typed Python library) and an **MCP server** (`servers/<technology>/`) that is a thin wrapper over it. Where the technology's own server is adopted, only the client lives here, for hosts that call the API from code (AbuseIPDB). Agents use the server from any MCP host; programs call the client directly where the path must be deterministic. Each API call is implemented once, so both see the same behaviour. Each server also ships a **capabilities manifest** and, where the technology allows it, a **capability probe** that writes a ZeroSOC capability binding file for what a given tenant exposes.
 
 Servers run standalone. The server and its tool client are two packages in this repository, so both are named on the command line:
 

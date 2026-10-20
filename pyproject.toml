@@ -10,14 +10,12 @@ package = false
 [tool.uv.workspace]
 members = ["clients/*", "servers/*"]
 
-[tool.uv.sources]
-zerosoc-microsoft-security = { workspace = true }
-zerosoc-mcp-microsoft-security = { workspace = true }
+# Every member is installed by `uv sync --all-packages` (make sync): a new client or server is a
+# directory under clients/ or servers/, and nothing here names it. A member that depends on another
+# says so in its own pyproject, under [tool.uv.sources].
 
 [dependency-groups]
 dev = [
-    "zerosoc-microsoft-security",
-    "zerosoc-mcp-microsoft-security",
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "ruff>=0.6",
@@ -32,7 +30,7 @@ dev = [
 testpaths = ["clients", "servers"]
 asyncio_mode = "auto"
 addopts = "-q --import-mode=importlib"
-pythonpath = ["clients/microsoft-security/tests"]
+# conftest.py at the root puts every member's tests/ on the path, for the fakes its tests share
 
 [tool.ruff]
 line-length = 100
@@ -47,7 +45,6 @@ ignore = ["S101", "E501"]  # the formatter holds code to the width; prose in doc
 "**/tests/*" = ["S105", "S106"]
 
 [tool.mypy]
+# make typecheck hands mypy every member's src/ and the matching search path
 strict = true
 python_version = "3.11"
-mypy_path = "clients/microsoft-security/src:servers/microsoft-security/src"
-files = ["clients/microsoft-security/src", "servers/microsoft-security/src"]

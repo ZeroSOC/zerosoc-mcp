@@ -1,0 +1,25 @@
+[project]
+name = "zerosoc-abuseipdb"
+version = "0.1.0"
+description = "Typed tool client for AbuseIPDB: an address's reputation, with a cache and the plan's quota, and the blacklist synced to a local store and matched with no request."
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+]
+
+[project.urls]
+Homepage = "https://github.com/ZeroSOC/zerosoc-mcp"
+Repository = "https://github.com/ZeroSOC/zerosoc-mcp"
+Issues = "https://github.com/ZeroSOC/zerosoc-mcp/issues"
+Changelog = "https://github.com/ZeroSOC/zerosoc-mcp/blob/main/CHANGELOG.md"
+Source = "https://github.com/ZeroSOC/zerosoc-mcp/tree/main/clients/abuseipdb"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zerosoc_abuseipdb"]
