@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+**Added**
+- `clients/abuseipdb` (`zerosoc-abuseipdb` 0.1.0), a typed client for hosts that call AbuseIPDB from
+  code (#44). Agents keep using AbuseIPDB's own MCP server, adopted in the coverage registry.
+  - `check` sends one bare public address only and answers the score, reports and distinct
+    reporters, report counts per category, country, network operator, usage type, and the Tor and
+    allowlist flags. It never returns a report comment.
+  - Answers are cached for an hour, the plan's quota is read off every answer, and failures are
+    neutral codes with no service text.
+  - `sync_blacklist` writes the blacklist whole into a local `BlacklistStore`, and `lookup` matches
+    it with no request. A failed sync keeps the last good copy.
+
+**Changed**
+- The workspace names no member: `make sync` installs every client and server, and the type,
+  security and test targets cover every `src/` and `tests/`, so a new client is a directory (#44).
+
 ## microsoft-security 0.6.0 (2026-10-14)
 
 **Changed**
