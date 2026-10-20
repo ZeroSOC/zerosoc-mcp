@@ -27,8 +27,10 @@ By taking part you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 The repository is a [uv](https://docs.astral.sh/uv/) workspace: tool clients under `clients/<technology>/`, MCP servers under `servers/<technology>/`. A server imports its client and holds no API code of its own, so an agent and a program get the same behaviour from one implementation.
 
+A new client or server is a directory: `make sync` installs every member, `make check` lints, type-checks and security-checks every `src/`, and `make test` runs every `tests/`, whose own helpers are importable by name. Nothing at the root names a member. A member that depends on another declares it in its own `pyproject.toml`, under `[tool.uv.sources]`.
+
 ```bash
-make sync     # uv sync
+make sync     # uv sync --all-packages
 make check    # format check, lint, types, security lint
 make test     # the whole suite, no network and no tenant needed
 make manifest # regenerate the capabilities manifest after changing the tool surface

@@ -21,6 +21,9 @@ Source = "https://github.com/ZeroSOC/zerosoc-mcp/tree/main/servers/microsoft-sec
 [project.scripts]
 mcp-microsoft-security = "zerosoc_mcp_microsoft_security.__main__:main"
 
+[tool.uv.sources]
+zerosoc-microsoft-security = { workspace = true }
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

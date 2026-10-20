@@ -1764,8 +1764,6 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "ruff" },
     { name = "types-jsonschema" },
-    { name = "zerosoc-mcp-microsoft-security" },
-    { name = "zerosoc-microsoft-security" },
 ]
 
 [package.metadata]
@@ -1780,8 +1778,6 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=0.24" },
     { name = "ruff", specifier = ">=0.6" },
     { name = "types-jsonschema" },
-    { name = "zerosoc-mcp-microsoft-security", editable = "servers/microsoft-security" },
-    { name = "zerosoc-microsoft-security", editable = "clients/microsoft-security" },
 ]
 
 [[package]]
