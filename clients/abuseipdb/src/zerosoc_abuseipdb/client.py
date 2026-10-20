@@ -19,6 +19,7 @@ plan's daily quota, and the quota is read off every answer.
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import time
 from collections import Counter
@@ -28,6 +29,7 @@ from typing import Any
 
 import httpx
 
+from .blacklist import BlacklistStore, Synced
 from .categories import CATEGORIES
 from .errors import AbuseIPDBError, Code, InvalidInputError
 from .operations import Operation, operation, operations_of
@@ -169,7 +171,34 @@ class AbuseIPDBClient:
         self._cache[key] = (now + self._cache_seconds, result)
         return result
 
-    async def _get(self, path: str, params: Mapping[str, str | int]) -> Any:
+    async def sync_blacklist(
+        self, store: BlacklistStore, *, confidence_minimum: int = 75, limit: int = 10_000
+    ) -> Synced:
+        """Download the blacklist (addresses at or above ``confidence_minimum``, at most ``limit``)
+        into ``store``, whole. On any failure the store keeps its last good copy. A plan allows a
+        number of downloads a day; AbuseIPDB regenerates the list hourly, so a daily sync is the
+        usual schedule."""
+        if not 25 <= confidence_minimum <= 100:
+            raise ValueError("confidence_minimum is 25 to 100, as AbuseIPDB takes it")
+        if limit < 1:
+            raise ValueError("limit is at least 1")
+        body = await self._get(
+            "blacklist", {"confidenceMinimum": confidence_minimum, "limit": limit}, whole=True
+        )
+        data = body.get("data") if isinstance(body, dict) else None
+        if not isinstance(data, list):
+            raise AbuseIPDBError("unexpected", status=200)
+        meta = body.get("meta") if isinstance(body.get("meta"), dict) else {}
+        # the store writes a file: off the event loop, so a host's other calls go on meanwhile
+        return await asyncio.to_thread(
+            store.replace,
+            data,
+            generated_at=meta.get("generatedAt"),
+            confidence_minimum=confidence_minimum,
+            synced_at=int(self._wall_clock() * 1000),
+        )
+
+    async def _get(self, path: str, params: Mapping[str, str | int], *, whole: bool = False) -> Any:
         try:
             response = await self._http.get(path, params=params)
         except httpx.TimeoutException as exc:
@@ -188,7 +217,7 @@ class AbuseIPDBClient:
             raise AbuseIPDBError("unexpected", status=200) from exc
         if not isinstance(body, dict):
             raise AbuseIPDBError("unexpected", status=200)
-        return body.get("data")
+        return body if whole else body.get("data")
 
     def _read_quota(self, headers: httpx.Headers) -> None:
         limit, remaining = headers.get("X-RateLimit-Limit"), headers.get("X-RateLimit-Remaining")
