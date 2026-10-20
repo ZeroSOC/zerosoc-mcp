@@ -10,6 +10,7 @@ resolution-markers = [
 
 [manifest]
 members = [
+    "zerosoc-abuseipdb",
     "zerosoc-mcp-microsoft-security",
     "zerosoc-mcp-workspace",
     "zerosoc-microsoft-security",
@@ -1733,6 +1734,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/5d/ad/04bbb797c84fc1f26
 wheels = [
     { url = "https://files.pythonhosted.org/packages/76/18/0eea75741ee812e9f598b687619ce2454f6c3a1c5cd21ea990ec6bd26f45/uvicorn-0.53.0-py3-none-any.whl", hash = "sha256:e8dca71ec86dce5f04e333f0d56cdedf942446e6643b9cea1af0d6d3a02cb03e", size = 87081, upload-time = "2026-09-14T07:44:22.179Z" },
 ]
+
+[[package]]
+name = "zerosoc-abuseipdb"
+version = "0.1.0"
+source = { editable = "clients/abuseipdb" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "httpx", specifier = ">=0.27" }]
 
 [[package]]
 name = "zerosoc-mcp-microsoft-security"
