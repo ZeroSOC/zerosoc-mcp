@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## abuseipdb 0.1.1 (2026-10-22)
+
+**Fixed**
+- The checks' quota and the blacklist downloads' quota are kept apart. AbuseIPDB counts each
+  endpoint on its own (on the Basic plan 10,000 checks and 100 downloads a day), but the client kept
+  only the last answer's figures, so a blacklist sync made `quota` read as the downloads left.
+  `quota` is now the checks' quota, read only from checks, and `blacklist_quota` the downloads',
+  read only from downloads.
+
+## abuseipdb 0.1.0 (2026-10-20)
+
 **Added**
 - `clients/abuseipdb` (`zerosoc-abuseipdb` 0.1.0), a typed client for hosts that call AbuseIPDB from
   code (#44). Agents keep using AbuseIPDB's own MCP server, adopted in the coverage registry.

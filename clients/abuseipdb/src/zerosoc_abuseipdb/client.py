@@ -140,12 +140,18 @@ class AbuseIPDBClient:
         self._clock = clock
         self._wall_clock = wall_clock
         self._cache: dict[tuple[str, int], tuple[float, CheckResult]] = {}
-        self._quota: Quota | None = None
+        # each endpoint has a daily quota of its own: many checks, few blacklist downloads
+        self._quotas: dict[str, Quota] = {}
 
     @property
     def quota(self) -> Quota | None:
-        """The quota as the last answer stated it; None before the first answer."""
-        return self._quota
+        """The checks' quota as the last check stated it; None before the first."""
+        return self._quotas.get("check")
+
+    @property
+    def blacklist_quota(self) -> Quota | None:
+        """The blacklist downloads' quota as the last download stated it; None before the first."""
+        return self._quotas.get("blacklist")
 
     async def aclose(self) -> None:
         await self._http.aclose()
@@ -205,7 +211,7 @@ class AbuseIPDBClient:
             raise AbuseIPDBError("timeout") from exc
         except httpx.HTTPError as exc:
             raise AbuseIPDBError("network") from exc
-        self._read_quota(response.headers)
+        self._read_quota(path, response.headers)
         if response.status_code != 200:
             code = _STATUS.get(response.status_code)
             if code is None:
@@ -219,11 +225,11 @@ class AbuseIPDBClient:
             raise AbuseIPDBError("unexpected", status=200)
         return body if whole else body.get("data")
 
-    def _read_quota(self, headers: httpx.Headers) -> None:
+    def _read_quota(self, path: str, headers: httpx.Headers) -> None:
         limit, remaining = headers.get("X-RateLimit-Limit"), headers.get("X-RateLimit-Remaining")
         if limit and remaining and limit.isdigit() and remaining.isdigit():
             reset = headers.get("X-RateLimit-Reset")
-            self._quota = Quota(
+            self._quotas[path] = Quota(
                 int(limit), int(remaining), int(reset) if reset and reset.isdigit() else None
             )
 
