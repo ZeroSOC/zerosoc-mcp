@@ -137,3 +137,27 @@ async def test_the_store_is_written_whole_or_not_at_all(tmp_path: Path) -> None:
 
 def _on_disk(folder: Path, path: Path) -> tuple[list[str], dict[str, Any]]:
     return sorted(p.name for p in folder.iterdir()), json.loads(path.read_text(encoding="utf-8"))
+
+
+async def test_the_check_quota_and_the_download_quota_are_kept_apart(tmp_path: Path) -> None:
+    """A plan allows many checks a day and few blacklist downloads, each counted on its own; a
+    sync must not make the checks left read as the downloads left."""
+    script = (
+        Script()
+        .json(
+            "GET",
+            "/api/v2/check",
+            {"data": {"ipAddress": "8.8.8.8", "reports": []}},
+            headers=quota(remaining=9_990, limit=10_000),
+        )
+        .json("GET", "/api/v2/blacklist", LISTED, headers=quota(remaining=98, limit=100))
+    )
+    client = _client(script)
+    await client.check("8.8.8.8")
+    await client.sync_blacklist(BlacklistStore(tmp_path / "b.json"))
+    assert client.quota is not None and (client.quota.limit, client.quota.remaining) == (
+        10_000,
+        9_990,
+    )
+    assert client.blacklist_quota is not None
+    assert (client.blacklist_quota.limit, client.blacklist_quota.remaining) == (100, 98)

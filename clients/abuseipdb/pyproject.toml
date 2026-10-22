@@ -1,6 +1,6 @@
 [project]
 name = "zerosoc-abuseipdb"
-version = "0.1.0"
+version = "0.1.1"
 description = "Typed tool client for AbuseIPDB: an address's reputation, with a cache and the plan's quota, and the blacklist synced to a local store and matched with no request."
 readme = "README.md"
 license = "Apache-2.0"

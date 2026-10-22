@@ -24,8 +24,9 @@ README). This client is for hosts that call AbuseIPDB from code.
 - **No service text is passed on.** A failure is an `AbuseIPDBError` with a code (`unauthorized`,
   `plan`, `quota`, `unavailable`, `timeout`, …) and the client's own sentence.
 - **Answers are cached** for an hour per address and window, since each check spends one of the
-  plan's daily checks. `client.quota` holds the limit, the remaining checks and the reset time as
-  the last answer stated them.
+  plan's daily checks. `client.quota` holds the checks' limit, remaining count and reset time as the
+  last check stated them, and `client.blacklist_quota` the same for blacklist downloads: each has a
+  daily quota of its own.
 - **`sync_blacklist(store, confidence_minimum=75, limit=10_000)`** downloads the blacklist into a
   `BlacklistStore`. That is one JSON file the host names, written whole, so a failed sync keeps the
   last good copy. `store.lookup(ip)` answers from the file with no network call. AbuseIPDB
