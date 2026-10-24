@@ -1,0 +1,306 @@
+{
+  "microsoft.graph.security.alertEvidence": {
+    "base": null,
+    "properties": {
+      "createdDateTime": "Edm.DateTimeOffset",
+      "detailedRoles": "Collection(Edm.String)",
+      "remediationStatus": "microsoft.graph.security.evidenceRemediationStatus",
+      "remediationStatusDetails": "Edm.String",
+      "roles": "Collection(microsoft.graph.security.evidenceRole)",
+      "tags": "Collection(Edm.String)",
+      "verdict": "microsoft.graph.security.evidenceVerdict"
+    }
+  },
+  "microsoft.graph.security.analyzedMessageEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "antiSpamDirection": "Edm.String",
+      "attachmentsCount": "Edm.Int64",
+      "deliveryAction": "Edm.String",
+      "deliveryLocation": "Edm.String",
+      "internetMessageId": "Edm.String",
+      "language": "Edm.String",
+      "networkMessageId": "Edm.String",
+      "p1Sender": "microsoft.graph.security.emailSender",
+      "p2Sender": "microsoft.graph.security.emailSender",
+      "receivedDateTime": "Edm.DateTimeOffset",
+      "recipientEmailAddress": "Edm.String",
+      "senderIp": "Edm.String",
+      "subject": "Edm.String",
+      "threatDetectionMethods": "Collection(Edm.String)",
+      "threats": "Collection(Edm.String)",
+      "urlCount": "Edm.Int64",
+      "urls": "Collection(Edm.String)",
+      "urn": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.defenderAvStatus": {
+    "enum": [
+      "notReporting",
+      "disabled",
+      "notUpdated",
+      "updated",
+      "unknown",
+      "notSupported"
+    ]
+  },
+  "microsoft.graph.security.detectionStatus": {
+    "enum": [
+      "detected",
+      "blocked",
+      "prevented"
+    ]
+  },
+  "microsoft.graph.security.deviceEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "azureAdDeviceId": "Edm.String",
+      "defenderAvStatus": "microsoft.graph.security.defenderAvStatus",
+      "deviceDnsName": "Edm.String",
+      "dnsDomain": "Edm.String",
+      "firstSeenDateTime": "Edm.DateTimeOffset",
+      "healthStatus": "microsoft.graph.security.deviceHealthStatus",
+      "hostName": "Edm.String",
+      "ipInterfaces": "Collection(Edm.String)",
+      "lastExternalIpAddress": "Edm.String",
+      "lastIpAddress": "Edm.String",
+      "loggedOnUsers": "Collection(microsoft.graph.security.loggedOnUser)",
+      "mdeDeviceId": "Edm.String",
+      "ntDomain": "Edm.String",
+      "onboardingStatus": "microsoft.graph.security.onboardingStatus",
+      "osBuild": "Edm.Int64",
+      "osPlatform": "Edm.String",
+      "rbacGroupId": "Edm.Int32",
+      "rbacGroupName": "Edm.String",
+      "resourceAccessEvents": "Collection(microsoft.graph.security.resourceAccessEvent)",
+      "riskScore": "microsoft.graph.security.deviceRiskScore",
+      "version": "Edm.String",
+      "vmMetadata": "microsoft.graph.security.vmMetadata"
+    }
+  },
+  "microsoft.graph.security.deviceHealthStatus": {
+    "enum": [
+      "active",
+      "inactive",
+      "impairedCommunication",
+      "noSensorData",
+      "noSensorDataImpairedCommunication",
+      "unknown"
+    ]
+  },
+  "microsoft.graph.security.deviceRiskScore": {
+    "enum": [
+      "none",
+      "informational",
+      "low",
+      "medium",
+      "high"
+    ]
+  },
+  "microsoft.graph.security.emailSender": {
+    "base": null,
+    "properties": {
+      "displayName": "Edm.String",
+      "domainName": "Edm.String",
+      "emailAddress": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.evidenceRemediationStatus": {
+    "enum": [
+      "none",
+      "remediated",
+      "prevented",
+      "blocked",
+      "notFound",
+      "active",
+      "pendingApproval",
+      "declined",
+      "unremediated",
+      "running",
+      "partiallyRemediated"
+    ]
+  },
+  "microsoft.graph.security.evidenceRole": {
+    "enum": [
+      "unknown",
+      "contextual",
+      "scanned",
+      "source",
+      "destination",
+      "created",
+      "added",
+      "compromised",
+      "edited",
+      "attacked",
+      "attacker",
+      "commandAndControl",
+      "loaded",
+      "suspicious",
+      "policyViolator"
+    ]
+  },
+  "microsoft.graph.security.evidenceVerdict": {
+    "enum": [
+      "unknown",
+      "suspicious",
+      "malicious",
+      "noThreatsFound"
+    ]
+  },
+  "microsoft.graph.security.fileDetails": {
+    "base": null,
+    "properties": {
+      "fileName": "Edm.String",
+      "filePath": "Edm.String",
+      "filePublisher": "Edm.String",
+      "fileSize": "Edm.Int64",
+      "issuer": "Edm.String",
+      "md5": "Edm.String",
+      "sha1": "Edm.String",
+      "sha256": "Edm.String",
+      "sha256Ac": "Edm.String",
+      "signer": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.fileEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "detectionStatus": "microsoft.graph.security.detectionStatus",
+      "fileDetails": "microsoft.graph.security.fileDetails",
+      "mdeDeviceId": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.geoLocation": {
+    "base": null,
+    "properties": {
+      "city": "Edm.String",
+      "countryName": "Edm.String",
+      "latitude": "Edm.Double",
+      "longitude": "Edm.Double",
+      "state": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.ipEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "countryLetterCode": "Edm.String",
+      "ipAddress": "Edm.String",
+      "location": "microsoft.graph.security.geoLocation",
+      "stream": "microsoft.graph.security.stream"
+    }
+  },
+  "microsoft.graph.security.loggedOnUser": {
+    "base": null,
+    "properties": {
+      "accountName": "Edm.String",
+      "domainName": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.mailboxEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "displayName": "Edm.String",
+      "primaryAddress": "Edm.String",
+      "upn": "Edm.String",
+      "userAccount": "microsoft.graph.security.userAccount"
+    }
+  },
+  "microsoft.graph.security.onboardingStatus": {
+    "enum": [
+      "insufficientInfo",
+      "onboarded",
+      "canBeOnboarded",
+      "unsupported"
+    ]
+  },
+  "microsoft.graph.security.processEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "detectionStatus": "microsoft.graph.security.detectionStatus",
+      "imageFile": "microsoft.graph.security.fileDetails",
+      "mdeDeviceId": "Edm.String",
+      "parentProcessCreationDateTime": "Edm.DateTimeOffset",
+      "parentProcessId": "Edm.Int64",
+      "parentProcessImageFile": "microsoft.graph.security.fileDetails",
+      "processCommandLine": "Edm.String",
+      "processCreationDateTime": "Edm.DateTimeOffset",
+      "processId": "Edm.Int64",
+      "userAccount": "microsoft.graph.security.userAccount"
+    }
+  },
+  "microsoft.graph.security.registryKeyEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "registryHive": "Edm.String",
+      "registryKey": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.registryValueEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "mdeDeviceId": "Edm.String",
+      "registryHive": "Edm.String",
+      "registryKey": "Edm.String",
+      "registryValue": "Edm.String",
+      "registryValueName": "Edm.String",
+      "registryValueType": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.resourceAccessEvent": {
+    "base": null,
+    "properties": {
+      "accessDateTime": "Edm.DateTimeOffset",
+      "accountId": "Edm.String",
+      "ipAddress": "Edm.String",
+      "resourceIdentifier": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.stream": {
+    "base": null,
+    "properties": {
+      "name": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.urlEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "url": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.userAccount": {
+    "base": null,
+    "properties": {
+      "accountName": "Edm.String",
+      "activeDirectoryObjectGuid": "Edm.Guid",
+      "azureAdUserId": "Edm.String",
+      "displayName": "Edm.String",
+      "domainName": "Edm.String",
+      "resourceAccessEvents": "Collection(microsoft.graph.security.resourceAccessEvent)",
+      "tenantId": "Edm.String",
+      "userPrincipalName": "Edm.String",
+      "userSid": "Edm.String"
+    }
+  },
+  "microsoft.graph.security.userEvidence": {
+    "base": "microsoft.graph.security.alertEvidence",
+    "properties": {
+      "stream": "microsoft.graph.security.stream",
+      "userAccount": "microsoft.graph.security.userAccount"
+    }
+  },
+  "microsoft.graph.security.vmCloudProvider": {
+    "enum": [
+      "unknown",
+      "azure"
+    ]
+  },
+  "microsoft.graph.security.vmMetadata": {
+    "base": null,
+    "properties": {
+      "cloudProvider": "microsoft.graph.security.vmCloudProvider",
+      "resourceId": "Edm.String",
+      "subscriptionId": "Edm.String",
+      "vmId": "Edm.String"
+    }
+  }
+}
