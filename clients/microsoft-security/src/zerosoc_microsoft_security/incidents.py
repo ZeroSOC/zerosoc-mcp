@@ -232,9 +232,13 @@ class Incidents(Surface):
         different verdict): those rows share `instance` (device, PID, creation time), sameProcess
         groups them with their verdicts, and processInstanceCount is the number of real processes.
         Rows carry type, name, PID and parent PID, full command line and its decoded
-        -EncodedCommand payload, creation times in UTC, SHA1/SHA256, path, user SID and UPN, device
-        ID, IP, registry key and value, detailed roles, verdict and remediation status. Follows a
-        merged incident to its master. These are the entities the alerts cite, not raw telemetry:
+        -EncodedCommand payload, creation times in UTC, SHA1/SHA256, path, who published, signed
+        and issued a file, a process's image and its parent's image, the account's SID, UPN,
+        display name and tenant, the device's IDs, addresses, OS, sensor, antivirus and group, an
+        IP's location, the registry key, value, type and data (decoded as text where it came as
+        bytes), roles, verdict, remediation status and its details, and tags. Where the alerts
+        citing one entity differ on its verdict, remediation or roles, by_alert gives each alert's
+        values. Follows a merged incident to its master. These are the entities the alerts cite, not raw telemetry:
         processes the detection did not flag are not here."""
         record = await self.incident_record(incident_id)
         alerts, truncated = list(record["alerts"]), bool(record["alertsTruncated"])

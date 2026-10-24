@@ -2,6 +2,33 @@
 
 ## Unreleased
 
+**Changed**
+- microsoft-security: the evidence rows carry what Graph says of an entity that they dropped (#48).
+  A consumer shows the rows to a model or a check, so a field missing from them could not be
+  reasoned from anywhere downstream.
+  - Files, process images and parent images: who published, signed and issued them
+    (`publisher`, `signer`, `issuer`). A parent image also keeps its path, size and hashes
+    (`parent_path`, `parent_size`, `parent_sha1`, `parent_sha256`).
+  - Registry values: their type (`value_type`). Graph sends the data of some text values as bytes
+    in hex (`43-00-3A-00-…`); for a string, an expandable string or a multi-string, `value_text`
+    now holds it decoded, and `value_data` keeps it as sent.
+  - Every evidence type: `remediation_status_details` and `tags`.
+  - Devices: addresses, OS version and build, sensor health, onboarding and antivirus state,
+    device group, NetBIOS domain, cloud provider and resource, and resource accesses. A device
+    without a DNS name is named by its host name in its DNS domain, where it was named by its id.
+  - Accounts: display name, tenant and resource accesses (`user_display_name`, `user_tenant_id`,
+    `user_resource_access_events`). IP addresses: their location and stream. Mailboxes: their
+    display name and own UPN; an account UPN that differs is kept as `account_upn`.
+  - The properties still left out are named in the module's docstring with the reason: `md5`,
+    `sha256Ac`, `activeDirectoryObjectGuid`, `rbacGroupId`, `vmId`, `subscriptionId`, an item's
+    `createdDateTime`, and `hostName` and `dnsDomain` where the device has a DNS name.
+- microsoft-security: one entity cited by several alerts keeps what each alert says of it (#48).
+  The merged row kept the first alert's value of every field. It still does, and where the alerts
+  differ on the entity's verdict, remediation status and its details, detection status, roles or
+  detailed roles, `by_alert` gives each alert's values of those fields. Tags are unioned.
+- microsoft-security: a test changes each property Graph's `$metadata` declares for the evidence
+  types, one at a time, and fails when the rows don't change and the docstring doesn't name it.
+
 ## abuseipdb 0.1.1 (2026-10-22)
 
 **Fixed**
