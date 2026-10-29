@@ -437,6 +437,7 @@ TESTED_ELSEWHERE = {
     "get_incident_evidence",
     "update_incident",
     "add_incident_comment",
+    "merge_incidents",
     # below
     "upload_library_file",
     "decode_command",
@@ -497,6 +498,7 @@ def test_everything_that_changes_the_estate_is_an_action() -> None:
     assert writes == {
         "update_incident",
         "add_incident_comment",
+        "merge_incidents",
         "update_alert",
         "add_alert_comment",
         "update_machine",

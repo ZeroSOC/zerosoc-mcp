@@ -66,7 +66,7 @@ The server is **Graph-first**: XDR-level operations use the [Microsoft Graph sec
 
 | Group | Read | Triage writes | Response actions (gated) | Notes |
 |---|---|---|---|---|
-| Incidents | 5 | 2 | | list, get, resolve merges, alerts, **evidence inventory**, update, comment |
+| Incidents | 5 | 3 | | list, get, resolve merges, alerts, **evidence inventory**, update, comment, merge |
 | Alerts | 2 | 2 | | alerts_v2: Endpoint, Office 365, Identity, Cloud Apps, Entra ID Protection |
 | Advanced hunting | 2 | | | cross-workload KQL; what attack disruption did, without writing the query |
 | Entra ID logs | 2 | | | sign-ins, directory audits |
@@ -89,6 +89,7 @@ Every tool that returns a collection is bounded: a conservative default and a ha
 - **`defender_get_capabilities`** answers from a probe the server runs as it starts (and again on `refresh`): which hunting tables hold data (`available`), which are exposed but `empty`, which the licence does `not_exposed`, which a licence gates and hold no rows (`undeclared` or `unlicensed`, see below), which APIs answer, which refuse because the service is `unlicensed` or inactive in the tenant, which refuse because a permission is missing (`forbidden`), and which application permissions are granted. An empty query result can then be read for what it is: a visibility gap, a missing licence or a missing permission. The result is a ZeroSOC capability binding (see below).
 - **`defender_get_incident_evidence`** returns the evidence of an incident the way the portal shows it: it pages through every alert, flattens the evidence into one row per evidence item, joins each row to its device, decodes encoded commands, gives every time in UTC, and returns `entityCount`, the length of that de-duplicated list. It is a reproduction of the portal's count of evidence items (it matched on a test incident checked by hand, on every type), not the source's own count, so it is not an independent check of the extraction: a count to check it against is read from the portal. Where the source lists one process twice because two alerts describe it differently, the rows are linked (`instance`, `sameProcess`) and not merged, so no verdict is lost. An incident too large to read whole says so (`alertsTruncated`).
 - **Writes follow merges.** A comment or an update sent to an incident that was merged into another lands on the master incident, and the result says so in `redirectedFrom`.
+- **`defender_merge_incidents`** merges two incidents or more into one, as the portal does. Defender chooses which incident remains and closes the others into it; the result names it (`targetIncidentId`) and the ones closed (`merged`). An incident merged already is merged at its master. Defender refuses the merge when one of them is resolved, when they are assigned to different people or classified differently, or when the incident kept would exceed its entity limit. This client offers no way back.
 
 ### Containing an identity, and a mailbox rule
 
@@ -166,6 +167,7 @@ A **Microsoft Entra ID app registration** with **Application** permissions (admi
 
 **Microsoft Graph:**
 - `SecurityIncident.ReadWrite.All` (or `.Read.All` for read-only deployments)
+- `SecurityData.Manage.All` to merge incidents (`defender_merge_incidents`): Graph accepts no other permission for it, and `SecurityIncident.ReadWrite.All` does not include it
 - `SecurityAlert.ReadWrite.All` (or `.Read.All`)
 - `ThreatHunting.Read.All`
 - `AuditLog.Read.All` and `Directory.Read.All` for the Entra ID logs (the sign-in log needs an Entra ID P1 or P2 licence in the tenant)

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+**Added**
+- microsoft-security: `merge_incidents` (`defender_merge_incidents`) merges two incidents or more
+  through Graph v1.0 `mergeIncidents`, with a comment and Defender's correlation reasons. Defender
+  chooses the incident that remains; the result names it and the ones closed into it. An incident
+  merged already is merged at its master. It needs `SecurityData.Manage.All`.
+
 **Changed**
 - microsoft-security: the evidence rows carry what Graph says of an entity that they dropped (#48).
   A consumer shows the rows to a model or a check, so a field missing from them could not be

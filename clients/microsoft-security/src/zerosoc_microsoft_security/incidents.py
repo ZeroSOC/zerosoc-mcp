@@ -59,6 +59,30 @@ _SUMMARY = (
 )
 _READ = ("SecurityIncident.Read.All",)
 _WRITE = ("SecurityIncident.ReadWrite.All",)
+_MERGE = ("SecurityData.Manage.All",)
+"""The only permission Graph accepts for merging incidents or moving alerts between them."""
+
+CorrelationReason = Literal[
+    "repeatedAlertOccurrence",
+    "sameGeography",
+    "similarArtifacts",
+    "sameTargetedAsset",
+    "sameNetworkSegment",
+    "eventSequence",
+    "timeFrame",
+    "sameThreatSource",
+    "similarTTPsOrBehavior",
+    "sameActor",
+    "sameCampaign",
+    "sharedIndicators",
+    "sameAsset",
+    "networkProximity",
+    "eventCasualSequence",
+    "temporalProximity",
+    "lateralMovementPath",
+]
+"""Why incidents are one, in Defender's own words (Graph `correlationReason`, a flags enum sent as
+one comma-separated string). `eventCasualSequence` is the API's spelling."""
 
 
 class Incidents(Surface):
@@ -352,6 +376,60 @@ class Incidents(Surface):
             json={"@odata.type": "microsoft.graph.security.alertComment", "comment": comment},
         )
         return {"incidentId": target, "redirectedFrom": walked, **thread}
+
+    @operation(tool="defender_merge_incidents", api="graph", kind="write", permissions=_MERGE)
+    async def merge_incidents(
+        self,
+        incident_ids: Annotated[
+            list[IncidentId],
+            Field(description="The incidents to merge, two or more, in any order."),
+        ],
+        comment: Annotated[
+            str | None, Field(description="A comment on the merged incident: why they are one.")
+        ] = None,
+        reasons: Annotated[
+            list[CorrelationReason] | None,
+            Field(description="Why they are one, as Defender's correlation reasons."),
+        ] = None,
+    ) -> JsonObject:
+        """Merge incidents into one (a triage write that cannot be undone here). Defender moves
+        every alert, tag and entity into the incident it chooses to keep and closes the others into
+        it; the caller has no say in which one remains. Returns targetIncidentId, the incident that
+        remains, and merged, the others, which now redirect to it.
+
+        An incident merged already is merged at its master, and redirectedFrom says so. Defender
+        refuses the merge when one of them is resolved, when they are assigned to different people
+        or classified differently, or when the incident kept would hold more entities than it
+        allows. Needs SecurityData.Manage.All, which SecurityIncident.ReadWrite.All does not
+        include."""
+        walked: list[str] = []
+        masters: list[str] = []
+        for incident_id in incident_ids:
+            master, through = await self._master(incident_id)
+            walked += through
+            uid = str(master.get("id", incident_id))
+            if uid not in masters:
+                masters.append(uid)
+        if len(incident_ids) < 2:
+            raise InvalidInputError("a merge takes two incidents or more")
+        if len(masters) < 2:
+            raise InvalidInputError(
+                f"{', '.join(incident_ids)} are one incident already ({masters[0]})"
+            )
+        body: dict[str, Any] = {"incidentIds": masters}
+        if comment is not None:
+            body["incidentComment"] = comment
+        if reasons:
+            body["mergeReasons"] = ", ".join(dict.fromkeys(reasons))
+        answer = await self._api.request(
+            GRAPH, "POST", "/security/incidents/mergeIncidents", json=body
+        )
+        target = str(answer.get("targetIncidentId") or "")
+        return {
+            "targetIncidentId": target,
+            "merged": [m for m in masters if m != target],
+            "redirectedFrom": walked,
+        }
 
     async def _master(
         self, incident_id: str, *, expand_alerts: bool = False
