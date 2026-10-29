@@ -59,8 +59,6 @@ _SUMMARY = (
 )
 _READ = ("SecurityIncident.Read.All",)
 _WRITE = ("SecurityIncident.ReadWrite.All",)
-_MERGE = ("SecurityData.Manage.All",)
-"""The only permission Graph accepts for merging incidents or moving alerts between them."""
 
 CorrelationReason = Literal[
     "repeatedAlertOccurrence",
@@ -377,7 +375,7 @@ class Incidents(Surface):
         )
         return {"incidentId": target, "redirectedFrom": walked, **thread}
 
-    @operation(tool="defender_merge_incidents", api="graph", kind="write", permissions=_MERGE)
+    @operation(tool="defender_merge_incidents", api="graph", kind="write", permissions=_WRITE)
     async def merge_incidents(
         self,
         incident_ids: Annotated[
@@ -400,8 +398,8 @@ class Incidents(Surface):
         An incident merged already is merged at its master, and redirectedFrom says so. Defender
         refuses the merge when one of them is resolved, when they are assigned to different people
         or classified differently, or when the incident kept would hold more entities than it
-        allows. Needs SecurityData.Manage.All, which SecurityIncident.ReadWrite.All does not
-        include."""
+        allows. Microsoft's reference names SecurityData.Manage.All for it, a permission Entra ID
+        does not offer; the service accepts the call with SecurityIncident.ReadWrite.All."""
         walked: list[str] = []
         masters: list[str] = []
         for incident_id in incident_ids:

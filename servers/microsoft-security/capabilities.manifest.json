@@ -1614,7 +1614,7 @@
       "kind": "write",
       "api": "graph",
       "permissions": [
-        "SecurityData.Manage.All"
+        "SecurityIncident.ReadWrite.All"
       ]
     }
   ]
