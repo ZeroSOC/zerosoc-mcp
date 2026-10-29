@@ -167,7 +167,7 @@ A **Microsoft Entra ID app registration** with **Application** permissions (admi
 
 **Microsoft Graph:**
 - `SecurityIncident.ReadWrite.All` (or `.Read.All` for read-only deployments)
-- `SecurityData.Manage.All` to merge incidents (`defender_merge_incidents`): Graph accepts no other permission for it, and `SecurityIncident.ReadWrite.All` does not include it
+  - `defender_merge_incidents` runs under it too. Microsoft's reference for `mergeIncidents` names `SecurityData.Manage.All`, which Entra ID does not offer; measured on a test tenant, the service authorized the call with `SecurityIncident.ReadWrite.All` and `SecurityAlert.ReadWrite.All` granted
 - `SecurityAlert.ReadWrite.All` (or `.Read.All`)
 - `ThreatHunting.Read.All`
 - `AuditLog.Read.All` and `Directory.Read.All` for the Entra ID logs (the sign-in log needs an Entra ID P1 or P2 licence in the tenant)

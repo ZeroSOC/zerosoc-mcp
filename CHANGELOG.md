@@ -6,7 +6,8 @@
 - microsoft-security: `merge_incidents` (`defender_merge_incidents`) merges two incidents or more
   through Graph v1.0 `mergeIncidents`, with a comment and Defender's correlation reasons. Defender
   chooses the incident that remains; the result names it and the ones closed into it. An incident
-  merged already is merged at its master. It needs `SecurityData.Manage.All`.
+  merged already is merged at its master. It runs under `SecurityIncident.ReadWrite.All`: the
+  `SecurityData.Manage.All` that Microsoft's reference names is not offered by Entra ID.
 
 **Changed**
 - microsoft-security: the evidence rows carry what Graph says of an entity that they dropped (#48).
