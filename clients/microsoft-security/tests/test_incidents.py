@@ -254,6 +254,55 @@ async def test_a_live_incident_is_written_where_it_is(
     assert (result["incidentId"], result["redirectedFrom"]) == ("14", [])
 
 
+async def test_incidents_are_merged_and_the_one_defender_kept_is_named(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """Defender chooses which incident remains; the caller is told which, and which were closed
+    into it."""
+    for uid in ("14", "21"):
+        script.json("GET", f"{G}/security/incidents/{uid}", {"id": uid, "status": "active"})
+    script.json("POST", f"{G}/security/incidents/mergeIncidents", {"targetIncidentId": "14"})
+
+    result = await client.merge_incidents(
+        ["21", "14"],
+        comment="One action, two detectors.",
+        reasons=["sameAsset", "temporalProximity"],
+    )
+
+    (sent,) = script.sent("POST", "/mergeIncidents")
+    assert Script.body(sent) == {
+        "incidentIds": ["21", "14"],
+        "incidentComment": "One action, two detectors.",
+        "mergeReasons": "sameAsset, temporalProximity",
+    }
+    assert (result["targetIncidentId"], result["merged"]) == ("14", ["21"])
+
+
+async def test_an_incident_merged_already_is_merged_at_its_master(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    merged(script)
+    script.json("GET", f"{G}/security/incidents/21", {"id": "21", "status": "active"})
+    script.json("POST", f"{G}/security/incidents/mergeIncidents", {"targetIncidentId": "14"})
+
+    result = await client.merge_incidents(["17", "21"])
+
+    (sent,) = script.sent("POST", "/mergeIncidents")
+    assert Script.body(sent) == {"incidentIds": ["14", "21"]}
+    assert (result["redirectedFrom"], result["merged"]) == (["17"], ["21"])
+
+
+async def test_incidents_that_are_one_already_are_not_merged(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    merged(script)
+    with pytest.raises(ValueError, match="one incident already"):
+        await client.merge_incidents(["17", "14"])
+    with pytest.raises(ValueError, match="two incidents"):
+        await client.merge_incidents(["14"])
+    assert not script.sent("POST", "/mergeIncidents")
+
+
 async def test_an_update_that_changes_nothing_is_refused(client: MicrosoftSecurityClient) -> None:
     with pytest.raises(ValueError, match="nothing to update"):
         await client.update_incident("14")

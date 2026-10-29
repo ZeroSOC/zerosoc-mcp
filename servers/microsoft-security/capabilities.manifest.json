@@ -1607,6 +1607,15 @@
       "permissions": [
         "SecurityIncident.ReadWrite.All"
       ]
+    },
+    {
+      "tool": "defender_merge_incidents",
+      "operation": "defender-xdr:merge_incidents",
+      "kind": "write",
+      "api": "graph",
+      "permissions": [
+        "SecurityData.Manage.All"
+      ]
     }
   ]
 }
