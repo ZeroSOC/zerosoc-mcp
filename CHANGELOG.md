@@ -1,8 +1,22 @@
 # Changelog
 
-## Unreleased
+## microsoft-security 0.7.0 (2026-11-06)
 
 **Added**
+- microsoft-security: `sign_ins_between(start, end)` reads every interactive sign-in of a window
+  from the Graph v1.0 sign-in log, page by page (1,000 a page), up to 50,000, and says when a
+  window held more (`truncated`). The bounds are ISO 8601 timestamps with a zone, sent to Graph in
+  UTC; anything else is refused before a request is sent. `list_sign_ins` stays the agent's
+  one-page tool.
+- microsoft-security: `entra_id_plan()` answers `"P2"`, `"P1"` or None: the highest Entra ID plan
+  the tenant has in use, read from `subscribedSkus` whatever product brings it. A plan counts when
+  its subscription is active (enabled, or in its grace period), has seats assigned and has the plan
+  provisioned. It is matched on the plan's id: Business Premium also carries `AAD_SMB`, which is
+  not P1. The pure part, `identity_logs.entra_id_plan(skus)`, is importable on its own.
+- microsoft-security: `sign_in_records(start, end)` searches the audit log for the interactive
+  sign-in records (`azureActiveDirectoryStsLogon`) of a window, on the existing search lifecycle.
+  It is the sign-in source where Entra ID P1 is missing, and it carries the session id
+  (`DeviceProperties.SessionId`) that the v1.0 sign-in log does not.
 - microsoft-security: `merge_incidents` (`defender_merge_incidents`) merges two incidents or more
   through Graph v1.0 `mergeIncidents`, with a comment and Defender's correlation reasons. Defender
   chooses the incident that remains; the result names it and the ones closed into it. An incident

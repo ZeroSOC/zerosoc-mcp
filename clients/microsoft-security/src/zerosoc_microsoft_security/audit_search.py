@@ -41,6 +41,10 @@ ACTIVITY_RECORD_TYPES = ("azureActiveDirectory", "exchangeAdmin", "mailSubmissio
 """The record types an alert's pointer (`Data.reid`, `Data.rtp`) names for the policies an alert
 intake watches: Entra ID (8), Exchange admin (1) and user submissions (29). They are searched with
 the alert records, so the activity behind an alert is read in the same search."""
+SIGN_IN_RECORD_TYPE = "azureActiveDirectoryStsLogon"
+"""Record type 15: a user's interactive sign-in to Entra ID, on every licence where auditing is on.
+It carries the client IP and, in `DeviceProperties`, the sign-in session's id (`SessionId`), which
+the Graph v1.0 sign-in log does not; it carries no location."""
 RUNNING = ("notStarted", "running")
 POLL_SECONDS = 30.0
 TIMEOUT_SECONDS = 900.0
@@ -403,6 +407,32 @@ class AuditSearch(Surface):
                 audit for r in records[:RECORD_LIMIT] if (audit := r.get("auditData") or {})
             ),
             truncated=len(records) > RECORD_LIMIT,
+        )
+
+    async def sign_in_records(
+        self,
+        start: str,
+        end: str,
+        *,
+        display_name: str = "zerosoc sign-in search",
+        poll_seconds: float = POLL_SECONDS,
+        timeout_seconds: float = TIMEOUT_SECONDS,
+    ) -> ActivitySearch:
+        """**The data plane**: the interactive sign-in records (`SIGN_IN_RECORD_TYPE`) of a window,
+        waited for and read whole up to `RECORD_LIMIT`. This is the sign-in source on a tenant
+        without Entra ID P1, and the session ids' source on one with it. Each search stays in the
+        tenant's list and counts against its daily allowance, as `activity_records` says.
+
+        Raises `AuditingDisabledError` when the tenant does not record the audit log, and
+        `TimeoutError` when the search has not completed within ``timeout_seconds``.
+        """
+        return await self.activity_records(
+            start,
+            end,
+            record_types=(SIGN_IN_RECORD_TYPE,),
+            display_name=display_name,
+            poll_seconds=poll_seconds,
+            timeout_seconds=timeout_seconds,
         )
 
     async def _searched(
