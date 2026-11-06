@@ -17,6 +17,7 @@ from zerosoc_microsoft_security.audit_search import (
     CONNECTION_GAP_SECONDS,
     CONNECTION_VECTOR,
     SAME_REQUEST_LIMIT,
+    SIGN_IN_RECORD_TYPE,
     AuditingDisabledError,
     connection_groups,
     fold_alert_records,
@@ -261,6 +262,26 @@ async def test_the_data_plane_can_search_the_alert_records_alone(
     (created,) = script.sent("POST", "/auditLog/queries")
     assert Script.body(created)["recordTypeFilters"] == [ALERT_RECORD_TYPE]
     assert [a.alert_id for a in found.alerts] == [REPEAT, REPORT]
+
+
+async def test_the_sign_in_search_asks_for_the_sign_in_records_alone(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    signed_in = {"RecordType": 15, "Operation": "UserLoggedIn", "ClientIP": "203.0.113.7"}
+    script.json("POST", QUERIES, {"id": "q-5", "status": "succeeded"})
+    script.json("GET", f"{QUERIES}/q-5/records", {"value": [{"auditData": signed_in}]})
+
+    found = await client.sign_in_records("2026-11-06T09:00:00Z", "2026-11-06T09:20:00Z")
+
+    (created,) = script.sent("POST", "/auditLog/queries")
+    assert Script.body(created) == {
+        "displayName": "zerosoc sign-in search",
+        "filterStartDateTime": "2026-11-06T09:00:00Z",
+        "filterEndDateTime": "2026-11-06T09:20:00Z",
+        "recordTypeFilters": [SIGN_IN_RECORD_TYPE],
+    }
+    assert found.records == (signed_in,)
+    assert found.truncated is False
 
 
 async def test_a_tenant_without_auditing_is_named_as_such(
