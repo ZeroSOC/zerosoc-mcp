@@ -94,6 +94,13 @@ def test_a_repeat_activity_folded_into_the_alert_is_an_activity_of_its_own() -> 
     assert alert.status == "Investigating"
 
 
+def test_each_activity_keeps_the_fields_of_the_alert_record_that_pointed_to_it() -> None:
+    first, later = _alert(ACTIVITY, REPEAT).activities
+
+    assert first.data["reid"] == "30000000-0000-0000-0000-000000000001"
+    assert later.data["reid"] == "30000000-0000-0000-0000-000000000004"
+
+
 def test_an_activity_whose_record_the_search_did_not_return_is_kept_unread() -> None:
     alert = _alert(_without("30000000-0000-0000-0000-000000000004"), REPEAT)
 
@@ -189,7 +196,9 @@ def test_a_pointer_resolves_on_the_audit_id_even_when_the_listing_id_differs() -
 def test_activities_are_part_of_the_alert_as_json() -> None:
     alert = _alert(_without("30000000-0000-0000-0000-000000000004"), REPEAT)
 
-    assert alert.as_json()["activities"][1] == {
+    shown = alert.as_json()["activities"][1]
+    assert shown.pop("data")["reid"] == "30000000-0000-0000-0000-000000000004"
+    assert shown == {
         "recordId": "30000000-0000-0000-0000-000000000004",
         "repeat": True,
         "recordType": 1,
