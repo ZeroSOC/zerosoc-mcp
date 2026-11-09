@@ -134,6 +134,10 @@ class AlertActivity:
     client address carries no port."""
     same_connection_count: int = 0
     """How many such records the search held, kept or not."""
+    data: JsonObject = field(default_factory=dict)
+    """The `Data` of the alert record that pointed to this activity, decoded. An update's own
+    fields live here: on a DLP alert the file and the data types of the match it folded in, which
+    no audit record the pointer names can supply."""
 
     @property
     def operation(self) -> str | None:
@@ -151,6 +155,7 @@ class AlertActivity:
             "sameRequestCount": self.same_request_count,
             "sameConnection": list(self.same_connection),
             "sameConnectionCount": self.same_connection_count,
+            "data": self.data,
         }
 
 
@@ -644,6 +649,7 @@ def _activities(
             same_request_count=len(job),
             same_connection=tuple(session[:SAME_REQUEST_LIMIT]),
             same_connection_count=len(session),
+            data=data,
         )
     return tuple(found.values())
 
