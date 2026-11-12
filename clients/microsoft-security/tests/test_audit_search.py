@@ -701,3 +701,29 @@ async def test_an_activity_search_reads_the_records_of_its_window_and_people(
     }
     assert found.query_id == "q-3" and not found.truncated
     assert list(found.records) == [r["auditData"] for r in ACTIVITY]
+
+
+async def test_an_activity_search_can_ask_for_the_records_of_named_objects(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """A caller that knows the objects, not the people, searches by them: the file operations on
+    the files a DLP rule matched say who moved them, which the match itself does not
+    (ZeroSOC/zerosoc-platform-azure#377). The service matches a SharePoint file by its URL as the
+    record writes it, unencoded; a trailing `*` matches a prefix."""
+    script.json("POST", QUERIES, {"id": "q-4", "status": "succeeded"})
+    script.on(
+        "GET", f"{QUERIES}/q-4", httpx.Response(200, json={"id": "q-4", "status": "succeeded"})
+    )
+    script.on("GET", f"{QUERIES}/q-4/records", httpx.Response(200, json={"value": []}))
+    url = "https://contoso.sharepoint.com/sites/Archive/Shared Documents/Pay slip.docx"
+
+    await client.activity_records(
+        "2026-11-12T09:55:00Z",
+        "2026-11-12T10:15:00Z",
+        record_types=("sharePoint", "sharePointFileOperation"),
+        object_ids=[url],
+    )
+
+    (created,) = script.sent("POST", "/auditLog/queries")
+    assert Script.body(created)["objectIdFilters"] == [url]
+    assert "userPrincipalNameFilters" not in Script.body(created)

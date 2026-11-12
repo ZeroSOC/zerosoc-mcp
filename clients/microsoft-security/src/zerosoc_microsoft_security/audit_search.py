@@ -380,12 +380,15 @@ class AuditSearch(Surface):
         *,
         record_types: tuple[str, ...] = ACTIVITY_RECORD_TYPES,
         user_principal_names: Sequence[str] = (),
+        object_ids: Sequence[str] = (),
         display_name: str = "zerosoc activity search",
         poll_seconds: float = POLL_SECONDS,
         timeout_seconds: float = TIMEOUT_SECONDS,
     ) -> ActivitySearch:
         """**The data plane**: the activity records of a window, by the people named (all where none
-        is), waited for and read whole up to `RECORD_LIMIT`. Each search stays in the tenant's list
+        is) and on the objects named (all where none is), waited for and read whole up to
+        `RECORD_LIMIT`. An object is named as its records write it: a SharePoint or OneDrive file by
+        its URL unencoded, and a trailing `*` matches every object the prefix starts. Each search stays in the tenant's list
         and counts against its daily allowance: a caller keeps its own budget.
 
         Raises `AuditingDisabledError` when the tenant does not record the audit log, and
@@ -399,6 +402,8 @@ class AuditSearch(Surface):
         }
         if user_principal_names:
             body["userPrincipalNameFilters"] = list(user_principal_names)
+        if object_ids:
+            body["objectIdFilters"] = list(object_ids)
         query_id, requested, completed, records = await self._searched(
             body, poll_seconds=poll_seconds, timeout_seconds=timeout_seconds
         )
