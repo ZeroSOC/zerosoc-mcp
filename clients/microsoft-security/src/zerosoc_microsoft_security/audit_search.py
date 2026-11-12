@@ -569,7 +569,12 @@ def _alert(
     jobs: dict[tuple[Any, ...], list[JsonObject]],
     sessions: dict[str, list[JsonObject]],
 ) -> AlertPolicyAlert | None:
-    ordered = sorted(records, key=lambda r: str(r.get("createdDateTime", "")))
+    # the raising record first among records of the same second: a DLP alert's first match is
+    # also written as an update at the time it raised the alert, in no set order
+    ordered = sorted(
+        records,
+        key=lambda r: (str(r.get("createdDateTime", "")), r.get("operation") != "AlertTriggered"),
+    )
     raised = next((r for r in ordered if r.get("operation") == "AlertTriggered"), None)
     if raised is None:
         return None

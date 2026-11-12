@@ -212,6 +212,34 @@ def test_activities_are_part_of_the_alert_as_json() -> None:
     }
 
 
+def test_the_raising_record_comes_first_when_an_update_carries_the_same_time() -> None:
+    """A DLP alert's first match was written twice in the same second, as `AlertTriggered` and as
+    an `AlertUpdated`, and the search returned the update first. The match raised the alert: it is
+    no repeat, whatever order records of the same time come back in."""
+
+    def alert_record(n: int, operation: str, at: str, pointer: str) -> dict[str, Any]:
+        data = {"reid": pointer, "rtp": 11, "op": "DlpIncident", "drn": "Rule"}
+        return {
+            "id": f"rec-{n}",
+            "createdDateTime": at,
+            "operation": operation,
+            "auditData": {"Id": f"rec-{n}", "AlertId": "alert-1", "Data": json.dumps(data)},
+        }
+
+    records = [
+        alert_record(1, "AlertUpdated", "2026-11-12T10:11:27Z", "match-1"),
+        alert_record(2, "AlertUpdated", "2026-11-12T10:13:17Z", "match-2"),
+        alert_record(3, "AlertTriggered", "2026-11-12T10:11:27Z", "match-1"),
+    ]
+
+    (alert,) = fold_alert_records(records)
+
+    assert [(a.record_id, a.repeat) for a in alert.activities] == [
+        ("match-1", False),
+        ("match-2", True),
+    ]
+
+
 def test_unreadable_data_is_kept_not_dropped() -> None:
     raised = {**RECORDS[4], "operation": "AlertTriggered"}
 
