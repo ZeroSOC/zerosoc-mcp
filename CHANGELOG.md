@@ -1,5 +1,20 @@
 # Changelog
 
+## microsoft-security, unreleased
+
+**Added**
+- microsoft-security: `activity_records(..., object_ids=[...])` searches the audit log for the
+  records on the objects named (`objectIdFilters`), alone or with the people named. A SharePoint
+  or OneDrive file is named by its URL as the records write it, unencoded (the service matched
+  none of an encoded URL's records), and a trailing `*` matches a prefix. Used to find who moved
+  or copied the files a DLP rule matched, which the match record does not say: it names the
+  file's last editor.
+
+**Fixed**
+- microsoft-security: an alert's raising activity is no longer read as a repeat when an
+  `AlertUpdated` record of the same second names the same activity and the search returns it
+  first. A DLP alert writes its first match both ways, so its first activity came back as a repeat.
+
 ## microsoft-security 0.7.0 (2026-11-06)
 
 **Added**

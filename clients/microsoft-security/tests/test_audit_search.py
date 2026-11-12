@@ -212,6 +212,34 @@ def test_activities_are_part_of_the_alert_as_json() -> None:
     }
 
 
+def test_the_raising_record_comes_first_when_an_update_carries_the_same_time() -> None:
+    """A DLP alert's first match was written twice in the same second, as `AlertTriggered` and as
+    an `AlertUpdated`, and the search returned the update first. The match raised the alert: it is
+    no repeat, whatever order records of the same time come back in."""
+
+    def alert_record(n: int, operation: str, at: str, pointer: str) -> dict[str, Any]:
+        data = {"reid": pointer, "rtp": 11, "op": "DlpIncident", "drn": "Rule"}
+        return {
+            "id": f"rec-{n}",
+            "createdDateTime": at,
+            "operation": operation,
+            "auditData": {"Id": f"rec-{n}", "AlertId": "alert-1", "Data": json.dumps(data)},
+        }
+
+    records = [
+        alert_record(1, "AlertUpdated", "2026-11-12T10:11:27Z", "match-1"),
+        alert_record(2, "AlertUpdated", "2026-11-12T10:13:17Z", "match-2"),
+        alert_record(3, "AlertTriggered", "2026-11-12T10:11:27Z", "match-1"),
+    ]
+
+    (alert,) = fold_alert_records(records)
+
+    assert [(a.record_id, a.repeat) for a in alert.activities] == [
+        ("match-1", False),
+        ("match-2", True),
+    ]
+
+
 def test_unreadable_data_is_kept_not_dropped() -> None:
     raised = {**RECORDS[4], "operation": "AlertTriggered"}
 
@@ -701,3 +729,29 @@ async def test_an_activity_search_reads_the_records_of_its_window_and_people(
     }
     assert found.query_id == "q-3" and not found.truncated
     assert list(found.records) == [r["auditData"] for r in ACTIVITY]
+
+
+async def test_an_activity_search_can_ask_for_the_records_of_named_objects(
+    client: MicrosoftSecurityClient, script: Script
+) -> None:
+    """A caller that knows the objects, not the people, searches by them: the file operations on
+    the files a DLP rule matched say who moved them, which the match itself does not
+    (ZeroSOC/zerosoc-platform-azure#377). The service matches a SharePoint file by its URL as the
+    record writes it, unencoded; a trailing `*` matches a prefix."""
+    script.json("POST", QUERIES, {"id": "q-4", "status": "succeeded"})
+    script.on(
+        "GET", f"{QUERIES}/q-4", httpx.Response(200, json={"id": "q-4", "status": "succeeded"})
+    )
+    script.on("GET", f"{QUERIES}/q-4/records", httpx.Response(200, json={"value": []}))
+    url = "https://contoso.sharepoint.com/sites/Archive/Shared Documents/Pay slip.docx"
+
+    await client.activity_records(
+        "2026-11-12T09:55:00Z",
+        "2026-11-12T10:15:00Z",
+        record_types=("sharePoint", "sharePointFileOperation"),
+        object_ids=[url],
+    )
+
+    (created,) = script.sent("POST", "/auditLog/queries")
+    assert Script.body(created)["objectIdFilters"] == [url]
+    assert "userPrincipalNameFilters" not in Script.body(created)
