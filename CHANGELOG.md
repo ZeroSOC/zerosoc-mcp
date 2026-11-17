@@ -10,6 +10,20 @@
   or copied the files a DLP rule matched, which the match record does not say: it names the
   file's last editor.
 
+- microsoft-security: the capability class `eradication.scan_host`, served by
+  `defender_run_av_scan` and bound where the endpoint API answers and the tenant granted
+  `Machine.Scan`. The scan is started and the call returns before it ends: what it finds arrives
+  as detections.
+
+**Changed**
+- microsoft-security: the inbox-rule operations declare `MailboxSettings.Read` (list, get) and
+  `MailboxSettings.ReadWrite` (delete, create), which are the permissions Microsoft's reference
+  names for a mailbox's message rules. They declared `Mail.Read` and `Mail.ReadWrite`, the
+  permissions on the mail itself, which the reference does not list for these calls and which
+  nothing here needs. `containment.remove_inbox_rule` is bound on `MailboxSettings.ReadWrite`: a
+  tenant that granted `Mail.ReadWrite` for it grants the new permission instead and can withdraw
+  the old one. Taken from the reference; not yet measured on a tenant.
+
 **Fixed**
 - microsoft-security: an alert's raising activity is no longer read as a repeat when an
   `AlertUpdated` record of the same second names the same activity and the search returns it

@@ -280,13 +280,13 @@
         "operation": "defender-xdr:delete_inbox_rule",
         "kind": "action",
         "permissions": [
-          "Mail.ReadWrite"
+          "MailboxSettings.ReadWrite"
         ],
         "requires_all": [
           "api:graph.users"
         ],
         "requires_any": [
-          "role:graph/Mail.ReadWrite"
+          "role:graph/MailboxSettings.ReadWrite"
         ],
         "notes": "removal destroys the rule, so read it with mailbox_get_inbox_rule first: what that answers is the only thing the rollback can be made from",
         "rollback": {
@@ -309,6 +309,22 @@
         ],
         "requires_any": [],
         "notes": "release from quarantine is done on the device or in the portal"
+      }
+    ],
+    "eradication.scan_host": [
+      {
+        "tool": "mcp:defender-xdr/defender_run_av_scan",
+        "operation": "defender-xdr:run_av_scan",
+        "kind": "action",
+        "permissions": [
+          "Machine.Scan"
+        ],
+        "requires_all": [
+          "api:mde.machines",
+          "role:mde/Machine.Scan"
+        ],
+        "requires_any": [],
+        "notes": "starts an antivirus scan on the device and returns before it ends: what it finds arrives as detections, and the machine action records how it ended"
       }
     ],
     "containment.block_indicator": [
@@ -1351,7 +1367,7 @@
       "kind": "read",
       "api": "graph",
       "permissions": [
-        "Mail.Read"
+        "MailboxSettings.Read"
       ]
     },
     {
@@ -1360,7 +1376,7 @@
       "kind": "read",
       "api": "graph",
       "permissions": [
-        "Mail.Read"
+        "MailboxSettings.Read"
       ]
     },
     {
@@ -1369,7 +1385,7 @@
       "kind": "action",
       "api": "graph",
       "permissions": [
-        "Mail.ReadWrite"
+        "MailboxSettings.ReadWrite"
       ]
     },
     {
@@ -1378,7 +1394,7 @@
       "kind": "action",
       "api": "graph",
       "permissions": [
-        "Mail.ReadWrite"
+        "MailboxSettings.ReadWrite"
       ]
     },
     {

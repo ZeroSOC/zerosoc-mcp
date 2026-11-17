@@ -20,10 +20,11 @@ from .operations import operation
 from .surface import Surface, top
 from .transport import GRAPH, JsonObject, capped, seg
 
-_READ = ("Mail.Read",)
-"""Reading the rules of a mailbox. `Mail.ReadWrite` grants it too."""
-_WRITE = ("Mail.ReadWrite",)
-"""Removing a rule, and putting one back."""
+_READ = ("MailboxSettings.Read",)
+"""Reading the rules of a mailbox. `MailboxSettings.ReadWrite` grants it too."""
+_WRITE = ("MailboxSettings.ReadWrite",)
+"""Removing a rule, and putting one back. Both are the permissions on a mailbox's settings: the
+permissions on its mail (`Mail.Read`, `Mail.ReadWrite`) are not asked for and would not serve."""
 
 READ_ONLY_FIELDS = ("id", "@odata.etag", "@odata.context", "isReadOnly", "hasError")
 """What the service owns on a rule. A restore that sent them back would be refused, so they are

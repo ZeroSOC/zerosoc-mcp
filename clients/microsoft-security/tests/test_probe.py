@@ -37,7 +37,7 @@ GRAPH_ROLES = [
     "User.Read.All",
     "User.RevokeSessions.All",
     "User.EnableDisableAccount.All",
-    "Mail.ReadWrite",
+    "MailboxSettings.ReadWrite",
 ]
 MDE_ROLES = [
     "Machine.Read.All",
@@ -310,6 +310,20 @@ async def test_containment_is_bound_only_with_the_permission_to_act() -> None:
     )
 
 
+async def test_the_antivirus_scan_is_bound_only_with_the_permission_to_scan() -> None:
+    without = await defender_for_business().get_capabilities()
+
+    assert "eradication.scan_host" not in without["capabilities"]
+    assert "Machine.Scan" in without["probe"]["unbound"]["eradication.scan_host"]
+
+    granted = await defender_for_business(mde_roles=[*MDE_ROLES, "Machine.Scan"]).get_capabilities()
+
+    scan = granted["capabilities"]["eradication.scan_host"]
+    assert scan["tool"] == "mcp:defender-xdr/defender_run_av_scan"
+    assert scan["operation"] == "defender-xdr:run_av_scan"
+    assert "reversed by" not in scan["notes"]
+
+
 async def test_identity_and_mailbox_containment_bind_where_the_directory_answers() -> None:
     binding = await defender_for_business().get_capabilities()
 
@@ -328,14 +342,18 @@ async def test_identity_containment_is_unbound_without_the_permission_to_act() -
     """A tenant that grants the directory read and no write reads accounts and contains none."""
     binding = await defender_for_business(
         graph_roles=[
-            r for r in GRAPH_ROLES if r not in ("User.RevokeSessions.All", "Mail.ReadWrite")
+            r
+            for r in GRAPH_ROLES
+            if r not in ("User.RevokeSessions.All", "MailboxSettings.ReadWrite")
         ]
     ).get_capabilities()
 
     assert "containment.disable_account" in binding["capabilities"]  # its own role is still granted
     assert "containment.suspend_sessions" not in binding["capabilities"]
     assert "User.RevokeSessions.All" in binding["probe"]["unbound"]["containment.suspend_sessions"]
-    assert "Mail.ReadWrite" in binding["probe"]["unbound"]["containment.remove_inbox_rule"]
+    assert (
+        "MailboxSettings.ReadWrite" in binding["probe"]["unbound"]["containment.remove_inbox_rule"]
+    )
 
 
 async def test_a_directory_that_does_not_answer_contains_no_account() -> None:
@@ -386,6 +404,7 @@ def test_the_manifest_lists_the_classes_the_server_satisfies_with_tool_and_opera
         "siem.search",
         "containment.isolate_host",
         "containment.quarantine_file",
+        "eradication.scan_host",
         "containment.block_indicator",
         "ticketing",
     }

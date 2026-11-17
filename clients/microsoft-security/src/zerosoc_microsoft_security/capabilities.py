@@ -231,7 +231,7 @@ CLASS_BINDINGS: tuple[ClassBinding, ...] = (
             Option(
                 "delete_inbox_rule",
                 requires_all=("api:graph.users",),
-                requires_any=("role:graph/Mail.ReadWrite",),
+                requires_any=("role:graph/MailboxSettings.ReadWrite",),
                 notes="removal destroys the rule, so read it with mailbox_get_inbox_rule first:"
                 " what that answers is the only thing the rollback can be made from",
                 rollback="create_inbox_rule",
@@ -245,6 +245,17 @@ CLASS_BINDINGS: tuple[ClassBinding, ...] = (
                 "stop_and_quarantine_file",
                 requires_all=(*_MDE, "role:mde/Machine.StopAndQuarantine"),
                 notes="release from quarantine is done on the device or in the portal",
+            ),
+        ),
+    ),
+    ClassBinding(
+        "eradication.scan_host",
+        (
+            Option(
+                "run_av_scan",
+                requires_all=(*_MDE, "role:mde/Machine.Scan"),
+                notes="starts an antivirus scan on the device and returns before it ends: what it"
+                " finds arrives as detections, and the machine action records how it ended",
             ),
         ),
     ),
