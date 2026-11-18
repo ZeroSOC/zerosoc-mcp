@@ -71,7 +71,7 @@ GRAPH = Api(
     " (SecurityIncident.ReadWrite.All, SecurityAlert.ReadWrite.All, ThreatHunting.Read.All;"
     " AuditLog.Read.All for the sign-in and directory audit logs; User.Read.All for accounts,"
     " RoleManagement.Read.Directory for directory roles, with User.RevokeSessions.All and User.EnableDisableAccount.All for identity containment;"
-    " Mail.Read and Mail.ReadWrite for inbox rules; AuditLogsQuery.Read.All for the Microsoft 365 audit"
+    " MailboxSettings.Read and MailboxSettings.ReadWrite for inbox rules; AuditLogsQuery.Read.All for the Microsoft 365 audit"
     " log search) with admin consent.",
 )
 MDE = Api(

@@ -175,7 +175,7 @@ A **Microsoft Entra ID app registration** with **Application** permissions (admi
 - `AuditLogsQuery.Read.All` for the Microsoft 365 audit log search (it reads every workload's audit records; Microsoft also offers narrower per-workload variants). Without it the service answers 403 with the message "App ... dont have any permissions"
 - `RoleManagement.Read.Directory` to list directory roles and who holds them (`Directory.Read.All` grants it too). A role member is described in full only where the app may also read its type (`User.Read.All` for an account); otherwise it comes back with its type and id alone
 - `User.RevokeSessions.All` and `User.EnableDisableAccount.All` for identity containment, only if response actions are enabled. `User.ReadWrite.All` grants both and much else besides; the two above are the least privilege that does
-- `Mail.Read` to read inbox rules, `Mail.ReadWrite` to remove one or put one back (only if response actions are enabled). Both are mailbox-wide, so scope them with an [application access policy](https://learn.microsoft.com/graph/auth-limit-mailbox-access) where the tenant allows it
+- `MailboxSettings.Read` to read inbox rules, `MailboxSettings.ReadWrite` to remove one or put one back (only if response actions are enabled). They reach the settings of every mailbox and none of its mail; scope them with an [application access policy](https://learn.microsoft.com/graph/auth-limit-mailbox-access) where the tenant allows it
 
 **WindowsDefenderATP:**
 - `Machine.Read.All`, `Machine.ReadWrite.All`
