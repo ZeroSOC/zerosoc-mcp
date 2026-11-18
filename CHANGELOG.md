@@ -10,10 +10,10 @@
   or copied the files a DLP rule matched, which the match record does not say: it names the
   file's last editor.
 
-- microsoft-security: the capability class `eradication.scan_host`, served by
+- microsoft-security: the capability class `endpoint.antivirus_scan`, served by
   `defender_run_av_scan` and bound where the endpoint API answers and the tenant granted
   `Machine.Scan`. The scan is started and the call returns before it ends: what it finds arrives
-  as detections.
+  as detections. The class names no phase: an investigation and a cleanup both ask for a scan.
 
 **Changed**
 - microsoft-security: the inbox-rule operations declare `MailboxSettings.Read` (list, get) and

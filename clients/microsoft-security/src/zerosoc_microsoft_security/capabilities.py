@@ -249,13 +249,15 @@ CLASS_BINDINGS: tuple[ClassBinding, ...] = (
         ),
     ),
     ClassBinding(
-        "eradication.scan_host",
+        "endpoint.antivirus_scan",
         (
             Option(
                 "run_av_scan",
                 requires_all=(*_MDE, "role:mde/Machine.Scan"),
                 notes="starts an antivirus scan on the device and returns before it ends: what it"
-                " finds arrives as detections, and the machine action records how it ended",
+                " finds arrives as detections, and the machine action records how it ended. It"
+                " belongs to no phase: an investigation asks for one to see what a device holds,"
+                " and a cleanup to confirm nothing is left",
             ),
         ),
     ),

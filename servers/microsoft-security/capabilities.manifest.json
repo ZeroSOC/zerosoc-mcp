@@ -311,7 +311,7 @@
         "notes": "release from quarantine is done on the device or in the portal"
       }
     ],
-    "eradication.scan_host": [
+    "endpoint.antivirus_scan": [
       {
         "tool": "mcp:defender-xdr/defender_run_av_scan",
         "operation": "defender-xdr:run_av_scan",
@@ -324,7 +324,7 @@
           "role:mde/Machine.Scan"
         ],
         "requires_any": [],
-        "notes": "starts an antivirus scan on the device and returns before it ends: what it finds arrives as detections, and the machine action records how it ended"
+        "notes": "starts an antivirus scan on the device and returns before it ends: what it finds arrives as detections, and the machine action records how it ended. It belongs to no phase: an investigation asks for one to see what a device holds, and a cleanup to confirm nothing is left"
       }
     ],
     "containment.block_indicator": [

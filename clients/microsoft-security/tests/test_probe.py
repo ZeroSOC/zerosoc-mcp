@@ -313,12 +313,12 @@ async def test_containment_is_bound_only_with_the_permission_to_act() -> None:
 async def test_the_antivirus_scan_is_bound_only_with_the_permission_to_scan() -> None:
     without = await defender_for_business().get_capabilities()
 
-    assert "eradication.scan_host" not in without["capabilities"]
-    assert "Machine.Scan" in without["probe"]["unbound"]["eradication.scan_host"]
+    assert "endpoint.antivirus_scan" not in without["capabilities"]
+    assert "Machine.Scan" in without["probe"]["unbound"]["endpoint.antivirus_scan"]
 
     granted = await defender_for_business(mde_roles=[*MDE_ROLES, "Machine.Scan"]).get_capabilities()
 
-    scan = granted["capabilities"]["eradication.scan_host"]
+    scan = granted["capabilities"]["endpoint.antivirus_scan"]
     assert scan["tool"] == "mcp:defender-xdr/defender_run_av_scan"
     assert scan["operation"] == "defender-xdr:run_av_scan"
     assert "reversed by" not in scan["notes"]
@@ -404,7 +404,7 @@ def test_the_manifest_lists_the_classes_the_server_satisfies_with_tool_and_opera
         "siem.search",
         "containment.isolate_host",
         "containment.quarantine_file",
-        "eradication.scan_host",
+        "endpoint.antivirus_scan",
         "containment.block_indicator",
         "ticketing",
     }
